@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1f4fd1"/>
+  <!-- anvil -->
+  <path fill="#ffffff" d="M120 196h236c0 34 26 52 60 52v20c-46 0-74 16-88 44l-8 16h44v44H148v-44h44l-8-16c-12-24-32-36-64-40z"/>
+  <!-- spark -->
+  <path fill="#ff8a5c" d="M300 112l12 34 34 12-34 12-12 34-12-34-34-12 34-12z"/>
+</svg>
