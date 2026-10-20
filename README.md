@@ -2,6 +2,8 @@
 
 A simple gym log for you and your friends, built around a 3-week, 3-day 5/3/1 programme. Pick a week and day to see what to lift; for each 5/3/1 lift, mark the first two sets as made or missed and record your reps on the + set. Every + set is archived with its estimated 1-rep max and a suggested training-max change for the next cycle. You can also log anything by hand, track your body weight, and chart your progress.
 
+**Live:** https://hephaestus-dun.vercel.app
+
 It's a Progressive Web App: open the link on your phone and choose **Add to Home Screen** to get an app icon. No app store needed.
 
 ## Stack
@@ -20,6 +22,11 @@ npm run dev
 Without Supabase keys, the app runs in **device-only mode**: entries are saved in the browser's localStorage. That's enough to work on the UI.
 
 To test on your phone, run `npm run dev -- --host` and open the "Network" URL it prints while you're on the same Wi-Fi.
+
+## Deployment
+
+- **Supabase** project `hephaestus` (ref `wqmaqvrfpzxehbboftgf`, London). Schema changes go in a new file in `supabase/migrations/`, then `npx supabase db push`. Auth settings (site URL, redirect URLs) live in `supabase/config.toml`; apply with `npx supabase config push`. The database password is in the macOS Keychain under "Supabase hephaestus DB password".
+- **Vercel** project `hephaestus`, connected to this GitHub repo: every push to `main` deploys to production, other branches get preview URLs.
 
 ## Connect Supabase (one time)
 
