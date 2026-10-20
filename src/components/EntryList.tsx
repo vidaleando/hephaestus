@@ -38,7 +38,16 @@ function EntryRow({ entry, unit, isPR, onRemove }: { entry: Entry; unit: Unit; i
           {isPR && <span className="pr-tag">PR</span>}
         </div>
         <div className="nums">
-          {weight} × {entry.reps} reps × {entry.sets} {entry.sets === 1 ? "set" : "sets"}
+          {entry.set_results ? (
+            <>
+              + set {weight} × {entry.amrap_reps ?? "?"} · {entry.set_results.filter(Boolean).length}/
+              {entry.set_results.length} sets made{entry.program_week ? ` · Week ${entry.program_week}` : ""}
+            </>
+          ) : (
+            <>
+              {weight} × {entry.reps} reps × {entry.sets} {entry.sets === 1 ? "set" : "sets"}
+            </>
+          )}
         </div>
       </div>
       <button

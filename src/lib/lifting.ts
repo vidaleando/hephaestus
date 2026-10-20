@@ -15,9 +15,23 @@ export function fmt(n: number): string {
   return round1(n).toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-/** Epley estimate of a one-rep max. */
+/** Brzycki estimate of a one-rep max, as the spreadsheet uses: 36 × weight / (37 − reps). */
 export function estimated1RM(weight: number, reps: number): number {
-  return reps <= 1 ? weight : weight * (1 + reps / 30);
+  if (reps <= 1) return weight;
+  // Brzycki breaks down near 37 reps; fall back to Epley there
+  if (reps >= 30) return weight * (1 + reps / 30);
+  return (36 * weight) / (37 - reps);
+}
+
+/** Signed percentage change from `from` to `to`. */
+export function percentChange(from: number, to: number): number {
+  return from === 0 ? 0 : ((to - from) * 100) / from;
+}
+
+export function fmtSigned(n: number, digits = 1): string {
+  const r = Number(n.toFixed(digits));
+  if (r === 0) return "0";
+  return (r > 0 ? "+" : "−") + Math.abs(r).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
 export function todayISO(): string {

@@ -1,72 +1,24 @@
-import { useMemo, useState } from "react";
-import { convert, estimated1RM, exerciseNames, fmt, sameExercise } from "../lib/lifting";
+import type { TrainingMaxes } from "../lib/programme";
+import { KEYS } from "../lib/storage";
 import type { Entry, Unit } from "../lib/types";
-import { EmptyState } from "./EmptyState";
-import { ProgressChart } from "./ProgressChart";
+import { usePersistentState } from "../lib/usePersistentState";
+import { ExerciseProgress } from "./ExerciseProgress";
+import { MainLiftProgress } from "./MainLiftProgress";
+import { Segmented } from "./Segmented";
 
-export function ProgressView({ entries, unit }: { entries: Entry[]; unit: Unit }) {
-  const names = useMemo(() => exerciseNames(entries), [entries]);
-  const [picked, setPicked] = useState("");
-  const current = names.find((n) => n === picked) ?? names[0];
+type Mode = "531" | "exercises";
 
-  const stats = useMemo(() => {
-    if (!current) return null;
-    const byDay = new Map<string, number>();
-    let heaviest = 0;
-    let best1RM = 0;
-    for (const e of entries) {
-      if (!sameExercise(e.exercise, current)) continue;
-      const w = convert(e.weight, e.unit, unit);
-      heaviest = Math.max(heaviest, w);
-      best1RM = Math.max(best1RM, estimated1RM(w, e.reps));
-      byDay.set(e.performed_on, Math.max(byDay.get(e.performed_on) ?? 0, w));
-    }
-    const points = [...byDay].sort((a, b) => (a[0] < b[0] ? -1 : 1));
-    return { heaviest, best1RM, points };
-  }, [entries, current, unit]);
+const MODES = [
+  { value: "531" as Mode, label: "5/3/1" },
+  { value: "exercises" as Mode, label: "All exercises" },
+];
 
+export function ProgressView({ entries, unit, maxes }: { entries: Entry[]; unit: Unit; maxes: TrainingMaxes }) {
+  const [mode, setMode] = usePersistentState<Mode>(KEYS.progressMode, "531");
   return (
     <section className="view">
-      <label htmlFor="pex">
-        Exercise
-        <select id="pex" value={current ?? ""} disabled={!names.length} onChange={(e) => setPicked(e.target.value)}>
-          {names.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {!stats ? (
-        <EmptyState title="Progress needs a few workouts">
-          Log the same exercise on different days and you'll see your heaviest weight climb here.
-        </EmptyState>
-      ) : (
-        <>
-          <div className="stats">
-            <Stat label="Heaviest" value={fmt(stats.heaviest)} unit={unit} />
-            <Stat label="Est. 1-rep max" value={fmt(stats.best1RM)} unit={unit} />
-            <Stat label="Sessions" value={String(stats.points.length)} />
-          </div>
-          <div className="chart">
-            <div className="note">Heaviest weight per session</div>
-            <ProgressChart points={stats.points} />
-          </div>
-        </>
-      )}
+      <Segmented label="Show" hideLabel options={MODES} value={mode} onChange={setMode} />
+      {mode === "531" ? <MainLiftProgress entries={entries} maxes={maxes} /> : <ExerciseProgress entries={entries} unit={unit} />}
     </section>
-  );
-}
-
-function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
-  return (
-    <div className="stat">
-      <div className="k">{label}</div>
-      <div className="v">
-        {value}
-        {unit && <small>{unit}</small>}
-      </div>
-    </div>
   );
 }

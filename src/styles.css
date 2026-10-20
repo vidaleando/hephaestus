@@ -165,6 +165,8 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   outline-offset: 2px;
 }
 .grid3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mode-bar { margin-bottom: 20px; }
 .weight-row { display: flex; gap: 6px; }
 .weight-row input { flex: 1; }
 .unit-toggle {
@@ -301,9 +303,45 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   border-radius: 14px;
   padding: 12px 8px 6px;
 }
-.chart svg { display: block; width: 100%; height: auto; }
 .chart .note { font-size: 13px; color: var(--muted); padding: 0 8px 6px; }
-.chart .axis { font-size: 11px; fill: var(--muted); font-family: var(--font-body); }
+.trend { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+.trend .recharts-surface:focus:not(:focus-visible),
+.trend .recharts-wrapper:focus:not(:focus-visible) { outline: none; }
+.chart-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-tip strong { font-size: 15px; color: var(--ink); font-weight: 600; }
+
+/* Archive table */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.archive { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.archive th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.archive td { padding: 10px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+.archive tbody tr:first-child td { border-top: 0; }
+.archive .num { text-align: right; }
+.suggestion .stats .stat { background: var(--bg); }
 
 /* Tab bar */
 .tabs {
@@ -486,6 +524,26 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .result.made[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: var(--accent-ink); }
 .result.missed[aria-pressed="true"] { background: var(--pr); border-color: var(--pr); color: var(--accent-ink); }
 .sub { font-size: 13px; font-weight: 500; color: var(--muted); }
+.amrap { display: flex; flex-direction: column; gap: 8px; }
+.amrap label { font-size: 13px; }
+.stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; }
+.stepper button {
+  font: inherit;
+  font-size: 24px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+.stepper input {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  padding-block: 6px;
+}
 .maxes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .toast {
@@ -643,6 +701,26 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .result.made[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: var(--accent-ink); }
 .result.missed[aria-pressed="true"] { background: var(--pr); border-color: var(--pr); color: var(--accent-ink); }
 .sub { font-size: 13px; font-weight: 500; color: var(--muted); }
+.amrap { display: flex; flex-direction: column; gap: 8px; }
+.amrap label { font-size: 13px; }
+.stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; }
+.stepper button {
+  font: inherit;
+  font-size: 24px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+.stepper input {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  padding-block: 6px;
+}
 .maxes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .toast { animation: none; }

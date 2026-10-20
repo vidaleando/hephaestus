@@ -21,3 +21,15 @@ export interface Entry {
 }
 
 export type NewEntry = Omit<Entry, "id" | "created_at">;
+
+export interface Bodyweight {
+  id: string;
+  /** In `unit`. */
+  weight: number;
+  unit: Unit;
+  /** Local date, YYYY-MM-DD. */
+  measured_on: string;
+  created_at: string;
+}
+
+export type NewBodyweight = Omit<Bodyweight, "id" | "created_at">;

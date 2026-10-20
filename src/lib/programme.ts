@@ -102,6 +102,34 @@ export function suggestedIncrease(oneRepMax: number, week: Week, repsDone: numbe
   return 2.5 * Math.floor((0.01 * (repsDone - base) * trainingMax(oneRepMax)) / 2.5);
 }
 
+export interface CycleSuggestion {
+  low: number;
+  average: number;
+  high: number;
+  /** The + set each figure is based on, one per week that has one. */
+  weeks: { week: Week; reps: number; change: number }[];
+}
+
+/**
+ * Training-max change suggested by a cycle's + sets, matching the spreadsheet's
+ * "Suggested Weight Increase" block: per week, 1% of the training max per rep above
+ * the minimum, rounded down to 2.5 kg. Low is the smallest (and can be negative after a
+ * missed + set), High the largest, Average the mean rounded down and never below zero.
+ */
+export function cycleSuggestion(oneRepMax: number, plusSets: { week: Week; reps: number }[]): CycleSuggestion | null {
+  if (!plusSets.length) return null;
+  const tm = trainingMax(oneRepMax);
+  const raw = plusSets.map(({ week, reps }) => 0.01 * (reps - WEEK_SETS[week][2].reps) * tm);
+  const floored = raw.map((r) => 2.5 * Math.floor(r / 2.5));
+  const mean = raw.reduce((a, b) => a + b, 0) / raw.length;
+  return {
+    low: Math.min(...floored),
+    high: Math.max(...floored),
+    average: Math.max(0, 2.5 * Math.floor(mean / 2.5)),
+    weeks: plusSets.map((p, i) => ({ ...p, change: floored[i] })),
+  };
+}
+
 export type TrainingMaxes = Record<Lift, number | null>;
 
 export const EMPTY_MAXES: TrainingMaxes = { squat: null, bench: null, deadlift: null, ohp: null };

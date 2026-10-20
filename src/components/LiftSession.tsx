@@ -15,21 +15,29 @@ interface Props {
   onBack: () => void;
 }
 
-/** Log a 5/3/1 main lift: made or missed for each of the three sets, plus reps on the last set. */
+/** Log a 5/3/1 main lift: made or missed for the first two sets, and reps done on the + set. */
 export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBack }: Props) {
   const sets = WEEK_SETS[week];
-  const [results, setResults] = useState<(boolean | null)[]>(() => existing?.set_results ?? [null, null, null]);
+  const [results, setResults] = useState<(boolean | null)[]>(() =>
+    existing?.set_results ? existing.set_results.slice(0, 2) : [null, null],
+  );
   const [repsDone, setRepsDone] = useState(() => (existing?.amrap_reps != null ? String(existing.amrap_reps) : ""));
   const [saving, setSaving] = useState(false);
 
   const last = sets[2];
   const lastWeight = setWeight(oneRepMax, last);
   const reps = parseInt(repsDone, 10);
+  const hasReps = reps >= 0;
   const increase = reps > 0 ? suggestedIncrease(oneRepMax, week, reps) : 0;
-  const complete = results.every((r) => r !== null);
+  const complete = results.every((r) => r !== null) && hasReps;
 
   function mark(i: number, made: boolean) {
     setResults(results.map((r, j) => (j === i ? made : r)));
+  }
+
+  function step(delta: number) {
+    const from = hasReps ? reps : delta > 0 ? last.reps - 1 : last.reps + 1;
+    setRepsDone(String(Math.min(100, Math.max(0, from + delta))));
   }
 
   async function save() {
@@ -43,8 +51,8 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
       performed_on: existing?.performed_on ?? todayISO(),
       program_week: week,
       program_day: day,
-      set_results: results.map(Boolean),
-      amrap_reps: reps >= 0 && repsDone !== "" ? reps : null,
+      set_results: [...results.map(Boolean), reps >= last.reps],
+      amrap_reps: reps,
     });
     setSaving(false);
     if (ok) onBack();
@@ -60,7 +68,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
 
       <ol className="sets">
         {sets.map((set, i) => {
-          const result = results[i];
+          const result = set.amrap ? (hasReps ? reps >= set.reps : null) : results[i];
           return (
             <li key={i} className="set" data-result={result === null ? undefined : result ? "made" : "missed"}>
               <div className="set-info">
@@ -72,40 +80,58 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
                   {set.amrap ? "+" : ""}
                 </span>
               </div>
-              <div className="set-actions">
-                <button type="button" className="result made" aria-pressed={result === true} onClick={() => mark(i, true)}>
-                  Made it
-                </button>
-                <button
-                  type="button"
-                  className="result missed"
-                  aria-pressed={result === false}
-                  onClick={() => mark(i, false)}
-                >
-                  Missed
-                </button>
-              </div>
-              {set.amrap && result !== null && (
-                <label htmlFor="reps-done" className="amrap">
-                  Reps done on this set (optional)
-                  <input
-                    id="reps-done"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    max="100"
-                    step="1"
-                    placeholder={String(set.reps)}
-                    value={repsDone}
-                    onChange={(e) => setRepsDone(e.target.value)}
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                  {increase > 0 && (
+              {set.amrap ? (
+                <div className="amrap">
+                  <label htmlFor="reps-done">Reps done (as many as you can, at least {set.reps})</label>
+                  <div className="stepper">
+                    <button type="button" aria-label="One rep fewer" onClick={() => step(-1)}>
+                      −
+                    </button>
+                    <input
+                      id="reps-done"
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="–"
+                      value={repsDone}
+                      onChange={(e) => setRepsDone(e.target.value)}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <button type="button" aria-label="One rep more" onClick={() => step(1)}>
+                      +
+                    </button>
+                  </div>
+                  {hasReps && (
                     <span className="sub">
-                      {reps - set.reps} extra reps suggests about +{fmt(increase)} kg on your training max.
+                      {reps < set.reps
+                        ? `Short of the ${set.reps} minimum, so this set counts as missed.`
+                        : increase > 0
+                          ? `${reps - set.reps} extra ${reps - set.reps === 1 ? "rep" : "reps"} suggests about +${fmt(increase)} kg on your training max.`
+                          : "Minimum reached."}
                     </span>
                   )}
-                </label>
+                </div>
+              ) : (
+                <div className="set-actions">
+                  <button
+                    type="button"
+                    className="result made"
+                    aria-pressed={result === true}
+                    onClick={() => mark(i, true)}
+                  >
+                    Made it
+                  </button>
+                  <button
+                    type="button"
+                    className="result missed"
+                    aria-pressed={result === false}
+                    onClick={() => mark(i, false)}
+                  >
+                    Missed
+                  </button>
+                </div>
               )}
             </li>
           );
@@ -113,7 +139,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
       </ol>
 
       <button className="primary" type="button" disabled={!complete || saving} onClick={save}>
-        {complete ? (existing ? `Update ${name}` : `Save ${name}`) : "Mark all three sets"}
+        {complete ? (existing ? `Update ${name}` : `Save ${name}`) : hasReps ? "Mark sets 1 and 2" : "Enter reps on the + set"}
       </button>
     </section>
   );

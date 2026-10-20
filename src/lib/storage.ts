@@ -18,10 +18,14 @@ export function writeLocal(key: string, value: unknown): void {
 
 export const KEYS = {
   entries: "hephaestus.entries",
+  bodyweights: "hephaestus.bodyweights",
   unit: "hephaestus.unit",
   tab: "hephaestus.tab",
   deviceOnly: "hephaestus.deviceOnly",
   maxes: "hephaestus.maxes",
   week: "hephaestus.week",
   day: "hephaestus.day",
+  logMode: "hephaestus.logMode",
+  progressMode: "hephaestus.progressMode",
+  progressLift: "hephaestus.progressLift",
 } as const;
