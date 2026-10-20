@@ -6,20 +6,21 @@ import type { Bodyweight, Entry, Unit } from "../lib/types";
 interface Props {
   entries: Entry[];
   maxes: TrainingMaxes;
+  cycle: number;
   weights: Bodyweight[];
   unit: Unit;
   toast: (message: string) => void;
 }
 
 /** Download everything as an .xlsx in the layout of Brad's 5/3/1 spreadsheet. */
-export function ExportPanel({ entries, maxes, weights, unit, toast }: Props) {
+export function ExportPanel({ entries, maxes, cycle, weights, unit, toast }: Props) {
   const [busy, setBusy] = useState(false);
 
   async function download() {
     setBusy(true);
     try {
       const { buildWorkbook, exportFileName } = await import("../lib/exportWorkbook");
-      const blob = await buildWorkbook({ entries, maxes, weights, unit });
+      const blob = await buildWorkbook({ entries, maxes, cycle, weights, unit });
       if (await saveFile(blob, exportFileName())) toast("Excel file ready");
     } catch {
       toast("Couldn't create the Excel file. Try again.");

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "./supabase";
+import { flush, withPending, write } from "./outbox";
 import { KEYS, readLocal, writeLocal } from "./storage";
+import { supabase } from "./supabase";
 import type { Entry, NewEntry } from "./types";
 
 const COLUMNS =
-  "id, exercise, weight, unit, reps, sets, performed_on, created_at, program_week, program_day, set_results, amrap_reps";
+  "id, exercise, weight, unit, reps, sets, performed_on, created_at, program_week, program_day, set_results, amrap_reps, cycle";
 
 function fromRow(row: Record<string, unknown>): Entry {
   return {
@@ -20,6 +21,7 @@ function fromRow(row: Record<string, unknown>): Entry {
     program_day: row.program_day == null ? null : Number(row.program_day),
     set_results: Array.isArray(row.set_results) ? row.set_results.map(Boolean) : null,
     amrap_reps: row.amrap_reps == null ? null : Number(row.amrap_reps),
+    cycle: row.cycle == null ? null : Number(row.cycle),
   };
 }
 
@@ -28,7 +30,8 @@ const saveLocal = (entries: Entry[]) => writeLocal(KEYS.entries, entries);
 
 /**
  * The signed-in user's log from Supabase, or this device's log when there is no user.
- * Anything logged on the device before signing in is uploaded on first sign-in.
+ * Anything logged on the device before signing in is uploaded on first sign-in. Writes go
+ * through the offline queue, so changes made with no signal sync later.
  */
 export function useEntries(userId: string | null, onError: (message: string) => void) {
   const cloud = supabase !== null && userId !== null;
@@ -51,14 +54,16 @@ export function useEntries(userId: string | null, onError: (message: string) => 
         const { error } = await db.from("entries").upsert(local);
         if (!error) saveLocal([]);
       }
+      await flush(userId);
       const { data, error } = await db
         .from("entries")
         .select(COLUMNS)
         .order("performed_on", { ascending: false })
         .order("created_at", { ascending: false });
       if (cancelled) return;
-      if (error) onError("Couldn't load your log. Check your connection and reopen the app.");
-      else setEntries(data.map(fromRow));
+      // Offline with nothing cached: show at least what's waiting to sync
+      setEntries(withPending(userId, "entries", error ? [] : data.map(fromRow)));
+      if (error && navigator.onLine) onError("Couldn't load your log. Check your connection and reopen the app.");
       setLoading(false);
     })();
 
@@ -72,19 +77,18 @@ export function useEntries(userId: string | null, onError: (message: string) => 
       const entry: Entry = { ...input, id: crypto.randomUUID(), created_at: new Date().toISOString() };
       const next = [...entries, entry];
       setEntries(next);
-      if (!cloud || !supabase) {
+      if (!cloud || !userId) {
         saveLocal(next);
         return true;
       }
-      const { error } = await supabase.from("entries").insert(entry);
-      if (error) {
+      if ((await write(userId, { table: "entries", kind: "insert", id: entry.id, row: { ...entry } })) === "failed") {
         setEntries((prev) => prev.filter((e) => e.id !== entry.id));
-        onError("Couldn't save that entry. Check your connection and try again.");
+        onError("Couldn't save that entry. Try again.");
         return false;
       }
       return true;
     },
-    [entries, cloud, onError],
+    [entries, cloud, userId, onError],
   );
 
   const remove = useCallback(
@@ -93,17 +97,16 @@ export function useEntries(userId: string | null, onError: (message: string) => 
       if (!target) return;
       const next = entries.filter((e) => e.id !== id);
       setEntries(next);
-      if (!cloud || !supabase) {
+      if (!cloud || !userId) {
         saveLocal(next);
         return;
       }
-      const { error } = await supabase.from("entries").delete().eq("id", id);
-      if (error) {
+      if ((await write(userId, { table: "entries", kind: "delete", id })) === "failed") {
         setEntries((prev) => [...prev, target]);
-        onError("Couldn't delete that entry. Check your connection and try again.");
+        onError("Couldn't delete that entry. Try again.");
       }
     },
-    [entries, cloud, onError],
+    [entries, cloud, userId, onError],
   );
 
   const update = useCallback(
@@ -113,19 +116,18 @@ export function useEntries(userId: string | null, onError: (message: string) => 
       const updated: Entry = { ...target, ...input };
       const next = entries.map((e) => (e.id === id ? updated : e));
       setEntries(next);
-      if (!cloud || !supabase) {
+      if (!cloud || !userId) {
         saveLocal(next);
         return true;
       }
-      const { error } = await supabase.from("entries").update(input).eq("id", id);
-      if (error) {
+      if ((await write(userId, { table: "entries", kind: "update", id, patch: { ...input } })) === "failed") {
         setEntries((prev) => prev.map((e) => (e.id === id ? target : e)));
-        onError("Couldn't save your changes. Check your connection and try again.");
+        onError("Couldn't save your changes. Try again.");
         return false;
       }
       return true;
     },
-    [entries, cloud, onError],
+    [entries, cloud, userId, onError],
   );
 
   return { entries, loading, add, update, remove, cloud };

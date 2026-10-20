@@ -23,6 +23,7 @@ export const KEYS = {
   tab: "hephaestus.tab",
   deviceOnly: "hephaestus.deviceOnly",
   maxes: "hephaestus.maxes",
+  cycle: "hephaestus.cycle",
   week: "hephaestus.week",
   day: "hephaestus.day",
   logMode: "hephaestus.logMode",

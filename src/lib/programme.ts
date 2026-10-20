@@ -132,4 +132,85 @@ export function cycleSuggestion(oneRepMax: number, plusSets: { week: Week; reps:
 
 export type TrainingMaxes = Record<Lift, number | null>;
 
+// ---- Cycles ----
+
+/** The nine sessions of a cycle, in order. */
+export const SESSIONS: { week: Week; day: Day }[] = ([1, 2, 3] as Week[]).flatMap((week) =>
+  ([1, 2, 3] as Day[]).map((day) => ({ week, day })),
+);
+
+interface CycleEntry {
+  exercise: string;
+  performed_on: string;
+  created_at: string;
+  program_week?: number | null;
+  program_day?: number | null;
+  set_results?: boolean[] | null;
+  amrap_reps?: number | null;
+  cycle?: number | null;
+}
+
+/** Programme entries logged before cycles existed count as cycle 1. */
+export function entryCycle(e: CycleEntry): number | null {
+  return e.program_week == null ? null : (e.cycle ?? 1);
+}
+
+/** The latest entry for one programme exercise in a given cycle, week and day. */
+export function findSessionEntry<T extends CycleEntry>(
+  entries: T[],
+  cycle: number,
+  week: Week,
+  day: Day,
+  exercise: string,
+): T | undefined {
+  const name = exercise.trim().toLowerCase();
+  return entries
+    .filter(
+      (e) =>
+        entryCycle(e) === cycle &&
+        e.program_week === week &&
+        e.program_day === day &&
+        e.exercise.trim().toLowerCase() === name,
+    )
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+    .pop();
+}
+
+/** A session counts as done once all of its 5/3/1 lifts are logged. */
+export function sessionDone(entries: CycleEntry[], cycle: number, week: Week, day: Day): boolean {
+  return DAYS[day]
+    .filter((i) => i.kind === "531")
+    .every((i) => findSessionEntry(entries, cycle, week, day, i.name)?.set_results);
+}
+
+/** The first session of the cycle that isn't done yet, or null when the cycle is complete. */
+export function nextSession(entries: CycleEntry[], cycle: number): { week: Week; day: Day } | null {
+  return SESSIONS.find((s) => !sessionDone(entries, cycle, s.week, s.day)) ?? null;
+}
+
+/** The latest + set per week of one lift within a cycle, for the next-cycle suggestion. */
+export function cyclePlusSets(entries: CycleEntry[], cycle: number, lift: Lift): { week: Week; reps: number }[] {
+  const out: { week: Week; reps: number }[] = [];
+  for (const week of [1, 2, 3] as Week[]) {
+    const latest = entries
+      .filter(
+        (e) =>
+          entryCycle(e) === cycle &&
+          e.program_week === week &&
+          e.set_results &&
+          e.amrap_reps != null &&
+          e.exercise.trim().toLowerCase() === LIFT_NAMES[lift].toLowerCase(),
+      )
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+      .pop();
+    if (latest) out.push({ week, reps: latest.amrap_reps! });
+  }
+  return out;
+}
+
+/** The 1-rep max that gives a training max `increase` kg higher than today's. */
+export function maxAfterIncrease(oneRepMax: number, increase: number): number {
+  return Math.round(((trainingMax(oneRepMax) + increase) / TRAINING_MAX_RATIO) * 100) / 100;
+}
+
 export const EMPTY_MAXES: TrainingMaxes = { squat: null, bench: null, deadlift: null, ohp: null };

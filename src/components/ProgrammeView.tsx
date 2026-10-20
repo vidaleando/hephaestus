@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { fmt, sameExercise, todayISO } from "../lib/lifting";
+import { fmt, niceDate } from "../lib/lifting";
 import {
   DAYS,
+  findSessionEntry,
   LIFT_NAMES,
+  nextSession,
+  sessionDone,
+  SESSIONS,
   setWeight,
   WEEK_SETS,
   type Day,
@@ -13,7 +17,9 @@ import {
 import { KEYS } from "../lib/storage";
 import type { Entry, NewEntry } from "../lib/types";
 import { usePersistentState } from "../lib/usePersistentState";
+import type { Cycle } from "../lib/useTrainingMaxes";
 import { AccessorySession } from "./AccessorySession";
+import { CycleStart } from "./CycleStart";
 import { LiftSession } from "./LiftSession";
 import { MaxesEditor } from "./MaxesEditor";
 import { Segmented } from "./Segmented";
@@ -21,47 +27,54 @@ import { Segmented } from "./Segmented";
 interface Props {
   entries: Entry[];
   maxes: TrainingMaxes;
+  cycle: Cycle;
   onSaveMaxes: (maxes: TrainingMaxes) => Promise<boolean>;
+  onStartCycle: (maxes: TrainingMaxes) => Promise<boolean>;
   onAdd: (entry: NewEntry) => Promise<boolean>;
   onUpdate: (id: string, entry: NewEntry) => Promise<boolean>;
   toast: (message: string) => void;
 }
 
-type Screen = { name: "list" } | { name: "item"; index: number } | { name: "maxes" };
+type Screen = { name: "list" } | { name: "item"; index: number } | { name: "maxes" } | { name: "cycle" };
 
-const WEEK_OPTIONS = [
-  { value: 1 as Week, label: "Week 1", hint: "5s" },
-  { value: 2 as Week, label: "Week 2", hint: "3s" },
-  { value: 3 as Week, label: "Week 3", hint: "5/3/1" },
-];
+const WEEK_HINTS: Record<Week, string> = { 1: "5s", 2: "3s", 3: "5/3/1" };
+const DAY_HINTS = Object.fromEntries(
+  ([1, 2, 3] as Day[]).map((d) => [d, DAYS[d].filter((i) => i.kind === "531").map((i) => i.name).join(" · ")]),
+) as Record<Day, string>;
 
-const DAY_OPTIONS = ([1, 2, 3] as Day[]).map((d) => ({
-  value: d,
-  label: `Day ${d}`,
-  hint: DAYS[d].filter((i) => i.kind === "531").map((i) => i.name).join(" · "),
-}));
-
-export function ProgrammeView({ entries, maxes, onSaveMaxes, onAdd, onUpdate, toast }: Props) {
+export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle, onAdd, onUpdate, toast }: Props) {
   const [week, setWeek] = usePersistentState<Week>(KEYS.week, 1);
   const [day, setDay] = usePersistentState<Day>(KEYS.day, 1);
   const [screen, setScreen] = useState<Screen>({ name: "list" });
 
   const items = DAYS[day];
-  const today = todayISO();
-  const loggedToday = (item: ProgrammeItem) =>
-    entries.find(
-      (e) =>
-        e.performed_on === today &&
-        e.program_week === week &&
-        e.program_day === day &&
-        sameExercise(e.exercise, item.name),
-    );
+  const logged = (item: ProgrammeItem) => findSessionEntry(entries, cycle.number, week, day, item.name);
+  const next = nextSession(entries, cycle.number);
+  const doneCount = SESSIONS.filter((x) => sessionDone(entries, cycle.number, x.week, x.day)).length;
+
+  const weekOptions = ([1, 2, 3] as Week[]).map((w) => ({
+    value: w,
+    label: `Week ${w}`,
+    hint: ([1, 2, 3] as Day[]).every((d) => sessionDone(entries, cycle.number, w, d)) ? "Done ✓" : WEEK_HINTS[w],
+  }));
+  const dayOptions = ([1, 2, 3] as Day[]).map((d) => ({
+    value: d,
+    label: `Day ${d}`,
+    hint: sessionDone(entries, cycle.number, week, d) ? `${DAY_HINTS[d]} ✓` : DAY_HINTS[d],
+  }));
+
+  function goTo(w: Week, d: Day) {
+    setWeek(w);
+    setDay(d);
+  }
 
   const back = () => {
     setScreen({ name: "list" });
     window.scrollTo(0, 0);
   };
-  const saveFor = (existing?: Entry) => async (entry: NewEntry) => {
+  const saveFor = (existing?: Entry) => async (input: NewEntry) => {
+    // New programme entries belong to the current cycle; edits keep the cycle they were logged in
+    const entry = { ...input, cycle: existing ? (existing.cycle ?? 1) : cycle.number };
     const ok = await (existing ? onUpdate(existing.id, entry) : onAdd(entry));
     if (ok) toast(`Saved ${entry.exercise}`);
     return ok;
@@ -76,9 +89,29 @@ export function ProgrammeView({ entries, maxes, onSaveMaxes, onAdd, onUpdate, to
     return <MaxesEditor maxes={maxes} onSave={saveMaxes} onBack={back} />;
   }
 
+  if (screen.name === "cycle") {
+    return (
+      <CycleStart
+        entries={entries}
+        maxes={maxes}
+        cycle={cycle.number}
+        complete={next === null}
+        onStart={async (m) => {
+          const ok = await onStartCycle(m);
+          if (ok) {
+            goTo(1, 1);
+            toast(`Cycle ${cycle.number + 1} started`);
+          }
+          return ok;
+        }}
+        onBack={back}
+      />
+    );
+  }
+
   if (screen.name === "item") {
     const item = items[screen.index];
-    const existing = loggedToday(item);
+    const existing = logged(item);
     if (item.kind === "531" && maxes[item.lift] != null) {
       return (
         <LiftSession
@@ -116,8 +149,32 @@ export function ProgrammeView({ entries, maxes, onSaveMaxes, onAdd, onUpdate, to
 
   return (
     <section className="view">
-      <Segmented label="Week" options={WEEK_OPTIONS} value={week} onChange={setWeek} />
-      <Segmented label="Day" options={DAY_OPTIONS} value={day} onChange={setDay} />
+      <div className="cycle-bar">
+        <div>
+          <span className="cycle-name">Cycle {cycle.number}</span>
+          <span className="sub">
+            {doneCount} of {SESSIONS.length} sessions
+            {cycle.startedOn ? ` · since ${niceDate(cycle.startedOn, { day: "numeric", month: "short" })}` : ""}
+          </span>
+        </div>
+        {next && (next.week !== week || next.day !== day) && (
+          <button type="button" className="chip next-up" onClick={() => goTo(next.week, next.day)}>
+            Next up: Week {next.week} · Day {next.day}
+          </button>
+        )}
+      </div>
+
+      {next === null && (
+        <div className="notice">
+          <p>Cycle {cycle.number} is complete. Raise your training maxes and start the next one.</p>
+          <button type="button" className="link" onClick={() => setScreen({ name: "cycle" })}>
+            Start cycle {cycle.number + 1}
+          </button>
+        </div>
+      )}
+
+      <Segmented label="Week" options={weekOptions} value={week} onChange={setWeek} />
+      <Segmented label="Day" options={dayOptions} value={day} onChange={setDay} />
 
       {missing.length > 0 && (
         <div className="notice">
@@ -136,7 +193,7 @@ export function ProgrammeView({ entries, maxes, onSaveMaxes, onAdd, onUpdate, to
         </h2>
         <div className="list">
           {items.map((item, index) => {
-            const done = loggedToday(item);
+            const done = logged(item);
             const locked = item.kind === "531" && maxes[item.lift] == null;
             return (
               <button
@@ -159,9 +216,16 @@ export function ProgrammeView({ entries, maxes, onSaveMaxes, onAdd, onUpdate, to
         </div>
       </div>
 
-      <button type="button" className="link maxes-link" onClick={() => setScreen({ name: "maxes" })}>
-        Edit 1-rep maxes
-      </button>
+      <div className="footer-links">
+        <button type="button" className="link" onClick={() => setScreen({ name: "maxes" })}>
+          Edit 1-rep maxes
+        </button>
+        {next !== null && (
+          <button type="button" className="link muted" onClick={() => setScreen({ name: "cycle" })}>
+            Start next cycle early
+          </button>
+        )}
+      </div>
     </section>
   );
 }

@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { convert, estimated1RM, fmt, fmtSigned, niceDate, sameExercise } from "../lib/lifting";
 import {
+  cyclePlusSets,
   cycleSuggestion,
+  entryCycle,
   LIFT_NAMES,
   LIFTS,
   trainingMax,
@@ -22,6 +24,7 @@ interface PlusSet {
   date: string;
   createdAt: string;
   week: Week | null;
+  cycle: number | null;
   /** kg */
   weight: number;
   reps: number;
@@ -32,7 +35,7 @@ interface PlusSet {
 const LIFT_OPTIONS = LIFTS.map((l) => ({ value: l, label: LIFT_NAMES[l] }));
 
 /** The spreadsheet's "531 Archive": every + set of a main lift, its estimated 1RM, and what it suggests. */
-export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: TrainingMaxes }) {
+export function MainLiftProgress({ entries, maxes, cycle }: { entries: Entry[]; maxes: TrainingMaxes; cycle: number }) {
   const [lift, setLift] = usePersistentState<Lift>(KEYS.progressLift, "squat");
 
   const plusSets = useMemo<PlusSet[]>(
@@ -47,6 +50,7 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
             date: e.performed_on,
             createdAt: e.created_at,
             week: (e.program_week ?? null) as Week | null,
+            cycle: entryCycle(e),
             weight,
             reps,
             e1rm: reps > 0 ? estimated1RM(weight, reps) : null,
@@ -67,17 +71,9 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
     if (!prev || p.e1rm! > prev.e1rm!) bestPerDay.set(p.date, p);
   }
 
-  // Latest + set in each week, as the spreadsheet's cycle sheet holds one per week
-  const latestPerWeek = new Map<Week, PlusSet>();
-  for (const p of [...plusSets].reverse()) if (p.week && !latestPerWeek.has(p.week)) latestPerWeek.set(p.week, p);
+  // The current cycle's latest + set in each week, as the spreadsheet's cycle sheet holds one per week
   const max = maxes[lift];
-  const suggestion =
-    max != null
-      ? cycleSuggestion(
-          max,
-          [...latestPerWeek.values()].sort((a, b) => a.week! - b.week!).map((p) => ({ week: p.week!, reps: p.reps })),
-        )
-      : null;
+  const suggestion = max != null ? cycleSuggestion(max, cyclePlusSets(entries, cycle, lift)) : null;
 
   return (
     <>
@@ -104,7 +100,7 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
                 points={[...bestPerDay.values()].map((p) => ({
                   date: p.date,
                   value: p.e1rm!,
-                  detail: `${fmt(p.weight)} kg × ${p.reps}${p.week ? ` · Week ${p.week}` : ""}`,
+                  detail: `${fmt(p.weight)} kg × ${p.reps}${p.cycle ? ` · Cycle ${p.cycle}` : ""}${p.week ? ` · Week ${p.week}` : ""}`,
                 }))}
               />
             </div>
@@ -113,9 +109,9 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
           {suggestion && max != null && (
             <div className="panel suggestion">
               <div>
-                <h2>Next cycle</h2>
+                <h2>Suggested for cycle {cycle + 1}</h2>
                 <p className="hint">
-                  Training max change suggested by your latest + set in{" "}
+                  Training max change from your cycle {cycle} + sets in{" "}
                   {suggestion.weeks.map((w) => `Week ${w.week}`).join(", ")}. Current training max{" "}
                   {fmt(trainingMax(max))} kg.
                 </p>
@@ -135,6 +131,7 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
                 <thead>
                   <tr>
                     <th scope="col">Date</th>
+                    <th scope="col">Cycle</th>
                     <th scope="col">Week</th>
                     <th scope="col" className="num">
                       + set
@@ -148,6 +145,7 @@ export function MainLiftProgress({ entries, maxes }: { entries: Entry[]; maxes: 
                   {[...plusSets].reverse().map((p) => (
                     <tr key={p.id}>
                       <td>{niceDate(p.date, { day: "numeric", month: "short", year: "2-digit" })}</td>
+                      <td>{p.cycle ?? "–"}</td>
                       <td>{p.week ?? "–"}</td>
                       <td className="num">
                         {fmt(p.weight)} × {p.reps}

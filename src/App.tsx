@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { About } from "./components/About";
 import { HistoryView } from "./components/HistoryView";
 import { InstallBanner } from "./components/InstallBanner";
 import { LogView } from "./components/LogView";
@@ -12,6 +13,7 @@ import type { Unit } from "./lib/types";
 import { signOut, useAuth } from "./lib/useAuth";
 import { useBodyweights } from "./lib/useBodyweights";
 import { useEntries } from "./lib/useEntries";
+import { useSync } from "./lib/useSync";
 import { useTrainingMaxes } from "./lib/useTrainingMaxes";
 import { usePersistentState } from "./lib/usePersistentState";
 
@@ -49,6 +51,7 @@ export default function App() {
   // History used to be its own tab; it now lives inside Log
   const tab: Tab = storedTab === "history" ? "log" : storedTab;
   const [logMode, setLogMode] = usePersistentState<LogMode>(KEYS.logMode, "today");
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const [toastMsg, setToastMsg] = useState<{ text: string; key: number } | null>(null);
   const toast = useCallback((text: string) => setToastMsg({ text, key: Date.now() }), []);
@@ -60,9 +63,27 @@ export default function App() {
 
   const userId = session?.user.id ?? null;
   const { entries, loading, add, update, remove, cloud } = useEntries(userId, toast);
-  const { maxes, loading: maxesLoading, save: saveMaxes } = useTrainingMaxes(userId, toast);
+  const { maxes, cycle, loading: maxesLoading, save: saveMaxes, startNextCycle } = useTrainingMaxes(userId, toast);
   const { weights, loading: weightsLoading, add: addWeight, remove: removeWeight } = useBodyweights(userId, toast);
   const prs = useMemo(() => personalRecords(entries), [entries]);
+
+  const onSyncFailure = useCallback(
+    (count: number) =>
+      toast(
+        count === 1
+          ? "One change made offline couldn't be saved. Reopen the app to see your latest data."
+          : `${count} changes made offline couldn't be saved. Reopen the app to see your latest data.`,
+      ),
+    [toast],
+  );
+  const { pending, online } = useSync(cloud ? userId : null, onSyncFailure);
+  const syncStatus = !cloud
+    ? "This device only"
+    : pending > 0
+      ? `${pending} to sync`
+      : online
+        ? "Synced"
+        : "Offline";
 
   const needsSignIn = supabase !== null && !authLoading && !session && !deviceOnly;
   const busy = authLoading || loading || maxesLoading || weightsLoading;
@@ -76,10 +97,14 @@ export default function App() {
     <>
       <header className="top">
         <div className="wrap">
-          <h1>Hephaestus</h1>
+          <h1>
+            <button type="button" className="logo" onClick={() => setAboutOpen(true)} aria-haspopup="dialog">
+              Hephaestus
+            </button>
+          </h1>
           <div className="account">
-            <span className="status" data-mode={cloud ? "cloud" : "local"}>
-              {cloud ? "Synced" : "This device only"}
+            <span className="status" data-mode={!cloud ? "local" : pending > 0 || !online ? "pending" : "cloud"}>
+              {syncStatus}
             </span>
             {cloud ? (
               <button type="button" className="link" onClick={handleSignOut}>
@@ -106,7 +131,9 @@ export default function App() {
               <ProgrammeView
                 entries={entries}
                 maxes={maxes}
+                cycle={cycle}
                 onSaveMaxes={saveMaxes}
+                onStartCycle={startNextCycle}
                 onAdd={add}
                 onUpdate={update}
                 toast={toast}
@@ -143,7 +170,7 @@ export default function App() {
                   toast={toast}
                 />
               ) : (
-                <ProgressView entries={entries} unit={unit} maxes={maxes} weights={weights} toast={toast} />
+                <ProgressView entries={entries} unit={unit} maxes={maxes} cycle={cycle.number} weights={weights} toast={toast} />
               )}
             </Suspense>
           )}
@@ -168,6 +195,8 @@ export default function App() {
           </div>
         </nav>
       )}
+
+      <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <div className="toast" role="status" hidden={!toastMsg} key={toastMsg?.key}>
         {toastMsg?.text}

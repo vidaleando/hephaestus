@@ -18,17 +18,18 @@ interface Props {
   entries: Entry[];
   unit: Unit;
   maxes: TrainingMaxes;
+  cycle: number;
   weights: Bodyweight[];
   toast: (message: string) => void;
 }
 
-export function ProgressView({ entries, unit, maxes, weights, toast }: Props) {
+export function ProgressView({ entries, unit, maxes, cycle, weights, toast }: Props) {
   const [mode, setMode] = usePersistentState<Mode>(KEYS.progressMode, "531");
   return (
     <section className="view">
       <Segmented label="Show" hideLabel options={MODES} value={mode} onChange={setMode} />
-      {mode === "531" ? <MainLiftProgress entries={entries} maxes={maxes} /> : <ExerciseProgress entries={entries} unit={unit} />}
-      <ExportPanel entries={entries} maxes={maxes} weights={weights} unit={unit} toast={toast} />
+      {mode === "531" ? <MainLiftProgress entries={entries} maxes={maxes} cycle={cycle} /> : <ExerciseProgress entries={entries} unit={unit} />}
+      <ExportPanel entries={entries} maxes={maxes} cycle={cycle} weights={weights} unit={unit} toast={toast} />
     </section>
   );
 }

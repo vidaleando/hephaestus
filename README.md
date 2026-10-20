@@ -1,6 +1,6 @@
 # Hephaestus
 
-A simple gym log for you and your friends, built around a 3-week, 3-day 5/3/1 programme. Pick a week and day to see what to lift; for each 5/3/1 lift, mark the first two sets as made or missed and record your reps on the + set. Every + set is archived with its estimated 1-rep max and a suggested training-max change for the next cycle. You can also log anything by hand, track your body weight, and chart your progress.
+A simple gym log for you and your friends, built around a 3-week, 3-day 5/3/1 programme. Pick a week and day to see what to lift; for each 5/3/1 lift, mark the first two sets as made or missed and record your reps on the + set. Every + set is archived with its estimated 1-rep max; when a cycle's nine sessions are done, the app suggests how much to raise each training max and starts the next cycle. You can also log anything by hand, track your body weight, and chart your progress.
 
 **Live:** https://hephaestus-dun.vercel.app
 
@@ -31,7 +31,7 @@ To test on your phone, run `npm run dev -- --host` and open the "Network" URL it
 ## Connect Supabase (one time)
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In the dashboard, open **SQL Editor** and run each file in [`supabase/migrations/`](supabase/migrations/) in order (`0001_entries.sql`, `0002_programme.sql`, `0003_bodyweights.sql`). They create the `entries`, `training_maxes` and `bodyweights` tables and the rules that keep each person's data private.
+2. In the dashboard, open **SQL Editor** and run each file in [`supabase/migrations/`](supabase/migrations/) in order (`0001_…` to `0004_…`). They create the `entries`, `training_maxes` and `bodyweights` tables, cycle tracking, and the rules that keep each person's data private.
 3. Under **Authentication → URL Configuration**, set **Site URL** to where the app lives (e.g. `https://hephaestus.vercel.app`). Add `http://localhost:5173` to **Redirect URLs** for local testing.
 4. Copy `.env.example` to `.env.local` and fill in your values from **Project Settings → API**: the project URL and the publishable (or anon) key. Both are safe to ship in the browser; the row-level security rules are what protect the data.
 5. Restart `npm run dev`. You'll see a sign-in screen; sign-in works by an emailed link.
@@ -57,6 +57,8 @@ src/
     LiftSession.tsx       5/3/1 lift: made/missed per set, reps on the + set
     AccessorySession.tsx  other programme exercises, pre-filled
     MaxesEditor.tsx       each person's 1-rep maxes
+    CycleStart.tsx        end of cycle: pick each training max increase, start the next cycle
+    About.tsx             about sheet, opened from the app name
     LogView.tsx           the logging form and today's entries
     HistoryView.tsx       entries grouped by day
     BodyView.tsx          body weight log, change between weigh-ins, chart
@@ -71,6 +73,8 @@ src/
     useTrainingMaxes.ts   loads/saves 1-rep maxes
     useBodyweights.ts     loads/saves weigh-ins
     useEntries.ts         loads/saves entries (Supabase, or localStorage when signed out)
+    outbox.ts             offline queue: every write goes through it and syncs when back online
+    useSync.ts            retries the queue on reconnect / app focus; pending count for the header
     useAuth.ts            Supabase session
     lifting.ts            unit conversion, PRs, Brzycki 1RM estimate, date helpers
     supabase.ts           client (null when no keys are configured)

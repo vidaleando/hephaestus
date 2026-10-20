@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { flush, withPending, write } from "./outbox";
 import { KEYS, readLocal, writeLocal } from "./storage";
 import { supabase } from "./supabase";
 import type { Bodyweight, NewBodyweight } from "./types";
@@ -18,7 +19,7 @@ function fromRow(row: Record<string, unknown>): Bodyweight {
 const loadLocal = () => readLocal<Bodyweight[]>(KEYS.bodyweights, []);
 const saveLocal = (rows: Bodyweight[]) => writeLocal(KEYS.bodyweights, rows);
 
-/** The user's weigh-ins from Supabase, or this device's when there is no user. */
+/** The user's weigh-ins from Supabase (through the offline queue), or this device's when there is no user. */
 export function useBodyweights(userId: string | null, onError: (message: string) => void) {
   const cloud = supabase !== null && userId !== null;
   const [weights, setWeights] = useState<Bodyweight[]>(() => (cloud ? [] : loadLocal()));
@@ -40,14 +41,15 @@ export function useBodyweights(userId: string | null, onError: (message: string)
         const { error } = await db.from("bodyweights").upsert(local);
         if (!error) saveLocal([]);
       }
+      await flush(userId);
       const { data, error } = await db
         .from("bodyweights")
         .select(COLUMNS)
         .order("measured_on", { ascending: false })
         .order("created_at", { ascending: false });
       if (cancelled) return;
-      if (error) onError("Couldn't load your body weights. Check your connection and reopen the app.");
-      else setWeights(data.map(fromRow));
+      setWeights(withPending(userId, "bodyweights", error ? [] : data.map(fromRow)));
+      if (error && navigator.onLine) onError("Couldn't load your body weights. Check your connection and reopen the app.");
       setLoading(false);
     })();
 
@@ -61,19 +63,18 @@ export function useBodyweights(userId: string | null, onError: (message: string)
       const row: Bodyweight = { ...input, id: crypto.randomUUID(), created_at: new Date().toISOString() };
       const next = [...weights, row];
       setWeights(next);
-      if (!cloud || !supabase) {
+      if (!cloud || !userId) {
         saveLocal(next);
         return true;
       }
-      const { error } = await supabase.from("bodyweights").insert(row);
-      if (error) {
+      if ((await write(userId, { table: "bodyweights", kind: "insert", id: row.id, row: { ...row } })) === "failed") {
         setWeights((prev) => prev.filter((w) => w.id !== row.id));
-        onError("Couldn't save that weight. Check your connection and try again.");
+        onError("Couldn't save that weight. Try again.");
         return false;
       }
       return true;
     },
-    [weights, cloud, onError],
+    [weights, cloud, userId, onError],
   );
 
   const remove = useCallback(
@@ -82,17 +83,16 @@ export function useBodyweights(userId: string | null, onError: (message: string)
       if (!target) return;
       const next = weights.filter((w) => w.id !== id);
       setWeights(next);
-      if (!cloud || !supabase) {
+      if (!cloud || !userId) {
         saveLocal(next);
         return;
       }
-      const { error } = await supabase.from("bodyweights").delete().eq("id", id);
-      if (error) {
+      if ((await write(userId, { table: "bodyweights", kind: "delete", id })) === "failed") {
         setWeights((prev) => [...prev, target]);
-        onError("Couldn't delete that weight. Check your connection and try again.");
+        onError("Couldn't delete that weight. Try again.");
       }
     },
-    [weights, cloud, onError],
+    [weights, cloud, userId, onError],
   );
 
   return { weights, loading, add, remove };

@@ -18,6 +18,8 @@ export interface Entry {
   set_results?: boolean[] | null;
   /** For a 5/3/1 lift: reps achieved on the last (+) set. */
   amrap_reps?: number | null;
+  /** The programme cycle this entry belongs to (programme entries only). */
+  cycle?: number | null;
 }
 
 export type NewEntry = Omit<Entry, "id" | "created_at">;

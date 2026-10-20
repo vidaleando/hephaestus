@@ -6,6 +6,7 @@ import type { Cell, Worksheet } from "exceljs";
 import { convert, estimated1RM, sameExercise, todayISO } from "./lifting";
 import {
   DAYS,
+  entryCycle,
   LIFT_NAMES,
   roundToPlate,
   trainingMax,
@@ -20,6 +21,8 @@ import type { Bodyweight, Entry, Unit } from "./types";
 interface ExportInput {
   entries: Entry[];
   maxes: TrainingMaxes;
+  /** The current cycle; the 531 sheet shows this cycle's sessions. */
+  cycle: number;
   weights: Bodyweight[];
   unit: Unit;
 }
@@ -47,14 +50,14 @@ function bold(ws: Worksheet, ...addresses: string[]) {
 
 const floor25 = (n: number) => 2.5 * Math.floor(n / 2.5);
 
-export async function buildWorkbook({ entries, maxes, weights, unit }: ExportInput): Promise<Blob> {
+export async function buildWorkbook({ entries, maxes, cycle, weights, unit }: ExportInput): Promise<Blob> {
   const { default: ExcelJS } = await import("exceljs");
   const wb = new ExcelJS.Workbook();
   wb.creator = "Hephaestus";
   wb.created = new Date();
   wb.calcProperties.fullCalcOnLoad = true;
 
-  build531Sheet(wb.addWorksheet("531"), entries, maxes);
+  build531Sheet(wb.addWorksheet("531"), entries, maxes, cycle);
   buildProgramSheet(wb.addWorksheet("Program"));
   buildArchiveSheet(wb.addWorksheet("531 Archive"), entries);
   buildAssistanceSheet(wb.addWorksheet("Assistance Archive"), entries);
@@ -69,9 +72,10 @@ export function exportFileName(): string {
 }
 
 /** The cycle sheet: maxes, the three weeks for each lift with Y/N and + set reps, suggestions. */
-function build531Sheet(ws: Worksheet, entries: Entry[], maxes: TrainingMaxes) {
+function build531Sheet(ws: Worksheet, entries: Entry[], maxes: TrainingMaxes, cycle: number) {
   ws.getCell("A1").value = "531 Hybrid";
   ws.getCell("A1").font = { bold: true, size: 14 };
+  ws.getCell("D1").value = `Cycle ${cycle}`;
 
   ["Lift", "Max", "Training max", 'New "Max"', "Goal"].forEach((h, i) => (ws.getCell(2, 2 + i).value = h));
   bold(ws, "B2", "C2", "D2", "E2", "F2");
@@ -84,9 +88,12 @@ function build531Sheet(ws: Worksheet, entries: Entry[], maxes: TrainingMaxes) {
     ohp: { 1: { reps: null, weight: null }, 2: { reps: null, weight: null }, 3: { reps: null, weight: null } },
   };
 
-  // The latest logged session of each lift in each week makes up the current cycle
+  // The latest logged session of each lift in each week of the current cycle
   const latest = (lift: Lift, week: Week) =>
-    entries.filter((e) => is531(e, lift) && e.program_week === week).sort(byDateAsc).pop();
+    entries
+      .filter((e) => is531(e, lift) && e.program_week === week && entryCycle(e) === cycle)
+      .sort(byDateAsc)
+      .pop();
 
   for (const lift of LIFT_ORDER) {
     const m = MAX_ROW[lift];
@@ -274,14 +281,15 @@ function buildArchiveSheet(ws: Worksheet, entries: Entry[]) {
         reps > 0 ? Math.round(estimated1RM(weight, reps) * 100) / 100 : weight,
       );
       ws.getCell(row, c + 2).numFmt = "0.0";
-      if (e.performed_on) ws.getCell(row, c).note = `${e.performed_on}${e.program_week ? ` · Week ${e.program_week}` : ""}`;
+      const c2 = entryCycle(e);
+      ws.getCell(row, c).note = `${e.performed_on}${c2 ? ` · Cycle ${c2}` : ""}${e.program_week ? ` · Week ${e.program_week}` : ""}`;
     });
   });
 }
 
 /** Everything logged that isn't a 5/3/1 main lift session. */
 function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
-  const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Sets", "Week", "Day"];
+  const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Sets", "Cycle", "Week", "Day"];
   ws.addRow(headers).font = { bold: true };
   for (const e of entries.filter((x) => !x.set_results).sort(byDateAsc)) {
     ws.addRow([
@@ -291,6 +299,7 @@ function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
       e.weight ? e.unit : "",
       e.reps,
       e.sets,
+      entryCycle(e) ?? "",
       e.program_week ?? "",
       e.program_day ?? "",
     ]);
