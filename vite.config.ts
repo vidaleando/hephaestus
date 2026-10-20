@@ -26,6 +26,19 @@ export default defineConfig({
       workbox: {
         runtimeCaching: [
           {
+            // Last-loaded log, maxes and weigh-ins, so the app shows your data with no signal.
+            // Network first: online you always get fresh data. Cleared on sign-out.
+            urlPattern: ({ url, request }) =>
+              request.method === "GET" && url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/rest/v1/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-data",
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: "CacheFirst",
             options: {

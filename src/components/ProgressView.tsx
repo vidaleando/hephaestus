@@ -1,8 +1,9 @@
 import type { TrainingMaxes } from "../lib/programme";
 import { KEYS } from "../lib/storage";
-import type { Entry, Unit } from "../lib/types";
+import type { Bodyweight, Entry, Unit } from "../lib/types";
 import { usePersistentState } from "../lib/usePersistentState";
 import { ExerciseProgress } from "./ExerciseProgress";
+import { ExportPanel } from "./ExportPanel";
 import { MainLiftProgress } from "./MainLiftProgress";
 import { Segmented } from "./Segmented";
 
@@ -13,12 +14,21 @@ const MODES = [
   { value: "exercises" as Mode, label: "All exercises" },
 ];
 
-export function ProgressView({ entries, unit, maxes }: { entries: Entry[]; unit: Unit; maxes: TrainingMaxes }) {
+interface Props {
+  entries: Entry[];
+  unit: Unit;
+  maxes: TrainingMaxes;
+  weights: Bodyweight[];
+  toast: (message: string) => void;
+}
+
+export function ProgressView({ entries, unit, maxes, weights, toast }: Props) {
   const [mode, setMode] = usePersistentState<Mode>(KEYS.progressMode, "531");
   return (
     <section className="view">
       <Segmented label="Show" hideLabel options={MODES} value={mode} onChange={setMode} />
       {mode === "531" ? <MainLiftProgress entries={entries} maxes={maxes} /> : <ExerciseProgress entries={entries} unit={unit} />}
+      <ExportPanel entries={entries} maxes={maxes} weights={weights} unit={unit} toast={toast} />
     </section>
   );
 }

@@ -28,4 +28,5 @@ export const KEYS = {
   logMode: "hephaestus.logMode",
   progressMode: "hephaestus.progressMode",
   progressLift: "hephaestus.progressLift",
+  installDismissed: "hephaestus.installDismissed",
 } as const;

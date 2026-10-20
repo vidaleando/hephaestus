@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { HistoryView } from "./components/HistoryView";
+import { InstallBanner } from "./components/InstallBanner";
 import { LogView } from "./components/LogView";
 import { ProgrammeView } from "./components/ProgrammeView";
 import { Segmented } from "./components/Segmented";
@@ -31,6 +32,14 @@ const LOG_MODES = [
   { value: "today" as LogMode, label: "Add" },
   { value: "history" as LogMode, label: "History" },
 ];
+
+const DATA_CACHE = "supabase-data";
+
+async function handleSignOut() {
+  await signOut();
+  // Drop the offline copy of this person's data so the next person on this device can't see it
+  if ("caches" in window) await caches.delete(DATA_CACHE).catch(() => false);
+}
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -73,7 +82,7 @@ export default function App() {
               {cloud ? "Synced" : "This device only"}
             </span>
             {cloud ? (
-              <button type="button" className="link" onClick={() => signOut()}>
+              <button type="button" className="link" onClick={handleSignOut}>
                 Sign out
               </button>
             ) : supabase && deviceOnly ? (
@@ -92,14 +101,17 @@ export default function App() {
           ) : busy ? (
             <p className="loading">Loading your log…</p>
           ) : tab === "programme" ? (
-            <ProgrammeView
-              entries={entries}
-              maxes={maxes}
-              onSaveMaxes={saveMaxes}
-              onAdd={add}
-              onUpdate={update}
-              toast={toast}
-            />
+            <>
+              <InstallBanner />
+              <ProgrammeView
+                entries={entries}
+                maxes={maxes}
+                onSaveMaxes={saveMaxes}
+                onAdd={add}
+                onUpdate={update}
+                toast={toast}
+              />
+            </>
           ) : tab === "log" ? (
             <>
               <div className="mode-bar">
@@ -131,7 +143,7 @@ export default function App() {
                   toast={toast}
                 />
               ) : (
-                <ProgressView entries={entries} unit={unit} maxes={maxes} />
+                <ProgressView entries={entries} unit={unit} maxes={maxes} weights={weights} toast={toast} />
               )}
             </Suspense>
           )}
