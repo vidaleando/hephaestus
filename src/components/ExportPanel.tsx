@@ -11,7 +11,7 @@ interface Props {
   toast: (message: string) => void;
 }
 
-/** Download everything as an .xlsx in the layout of the original 5/3/1 spreadsheet. */
+/** Download everything as an .xlsx in the layout of Brad's 5/3/1 spreadsheet. */
 export function ExportPanel({ entries, maxes, weights, unit, toast }: Props) {
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +34,7 @@ export function ExportPanel({ entries, maxes, weights, unit, toast }: Props) {
         <h2>Export</h2>
         <p className="hint">
           Your current cycle, the programme, every + set, everything else you've logged, and your body weight, in the
-          layout of the original 5/3/1 spreadsheet.
+          layout of Brad's 5/3/1.
         </p>
       </div>
       <button type="button" className="secondary" onClick={download} disabled={busy}>

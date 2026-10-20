@@ -18,9 +18,15 @@ function isIOS(): boolean {
   return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
+function isFirefoxAndroid(): boolean {
+  const ua = navigator.userAgent;
+  return /android/i.test(ua) && /firefox/i.test(ua);
+}
+
 /**
  * How this browser can install the app: "prompt" (Chrome/Android/desktop, one tap),
- * "ios" (manual Share → Add to Home Screen), or null (installed already, or unsupported).
+ * "ios" (manual Share → Add to Home Screen), "firefox-android" (manual, from Firefox's menu;
+ * Firefox never offers sites an install prompt), or null (installed already, or unsupported).
  */
 export function useInstallPrompt() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -43,7 +49,15 @@ export function useInstallPrompt() {
     };
   }, []);
 
-  const mode: "prompt" | "ios" | null = installed ? null : event ? "prompt" : isIOS() ? "ios" : null;
+  const mode: "prompt" | "ios" | "firefox-android" | null = installed
+    ? null
+    : event
+      ? "prompt"
+      : isIOS()
+        ? "ios"
+        : isFirefoxAndroid()
+          ? "firefox-android"
+          : null;
 
   async function install() {
     if (!event) return;

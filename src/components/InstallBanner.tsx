@@ -24,9 +24,15 @@ export function InstallBanner() {
         </>
       ) : (
         <>
-          <p>
-            Add Hephaestus to your home screen: tap <b>Share</b>, then <b>Add to Home Screen</b>.
-          </p>
+          {mode === "ios" ? (
+            <p>
+              Add Hephaestus to your home screen: tap <b>Share</b>, then <b>Add to Home Screen</b>.
+            </p>
+          ) : (
+            <p>
+              Add Hephaestus to your home screen: open Firefox's <b>⋮</b> menu, then tap <b>Add app to Home screen</b>.
+            </p>
+          )}
           <div className="notice-actions">
             <button type="button" className="link" onClick={() => setDismissed(true)}>
               Got it
