@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HistoryView } from "./components/HistoryView";
 import { LogView } from "./components/LogView";
+import { ProgrammeView } from "./components/ProgrammeView";
 import { ProgressView } from "./components/ProgressView";
 import { SignIn } from "./components/SignIn";
 import { personalRecords } from "./lib/lifting";
@@ -9,9 +10,11 @@ import { supabase } from "./lib/supabase";
 import type { Unit } from "./lib/types";
 import { signOut, useAuth } from "./lib/useAuth";
 import { useEntries } from "./lib/useEntries";
+import { useTrainingMaxes } from "./lib/useTrainingMaxes";
 import { usePersistentState } from "./lib/usePersistentState";
 
 const TABS = [
+  { id: "programme", label: "Programme" },
   { id: "log", label: "Log" },
   { id: "history", label: "History" },
   { id: "progress", label: "Progress" },
@@ -22,7 +25,7 @@ export default function App() {
   const { session, loading: authLoading } = useAuth();
   const [deviceOnly, setDeviceOnly] = usePersistentState(KEYS.deviceOnly, false);
   const [unit, setUnit] = usePersistentState<Unit>(KEYS.unit, "kg");
-  const [tab, setTab] = usePersistentState<Tab>(KEYS.tab, "log");
+  const [tab, setTab] = usePersistentState<Tab>(KEYS.tab, "programme");
 
   const [toastMsg, setToastMsg] = useState<{ text: string; key: number } | null>(null);
   const toast = useCallback((text: string) => setToastMsg({ text, key: Date.now() }), []);
@@ -33,11 +36,12 @@ export default function App() {
   }, [toastMsg]);
 
   const userId = session?.user.id ?? null;
-  const { entries, loading, add, remove, cloud } = useEntries(userId, toast);
+  const { entries, loading, add, update, remove, cloud } = useEntries(userId, toast);
+  const { maxes, loading: maxesLoading, save: saveMaxes } = useTrainingMaxes(userId, toast);
   const prs = useMemo(() => personalRecords(entries), [entries]);
 
   const needsSignIn = supabase !== null && !authLoading && !session && !deviceOnly;
-  const busy = authLoading || loading;
+  const busy = authLoading || loading || maxesLoading;
 
   function show(next: Tab) {
     setTab(next);
@@ -72,6 +76,15 @@ export default function App() {
             <SignIn onSkip={() => setDeviceOnly(true)} />
           ) : busy ? (
             <p className="loading">Loading your log…</p>
+          ) : tab === "programme" ? (
+            <ProgrammeView
+              entries={entries}
+              maxes={maxes}
+              onSaveMaxes={saveMaxes}
+              onAdd={add}
+              onUpdate={update}
+              toast={toast}
+            />
           ) : tab === "log" ? (
             <LogView
               entries={entries}

@@ -3,7 +3,8 @@ import { supabase } from "./supabase";
 import { KEYS, readLocal, writeLocal } from "./storage";
 import type { Entry, NewEntry } from "./types";
 
-const COLUMNS = "id, exercise, weight, unit, reps, sets, performed_on, created_at";
+const COLUMNS =
+  "id, exercise, weight, unit, reps, sets, performed_on, created_at, program_week, program_day, set_results, amrap_reps";
 
 function fromRow(row: Record<string, unknown>): Entry {
   return {
@@ -15,6 +16,10 @@ function fromRow(row: Record<string, unknown>): Entry {
     sets: Number(row.sets),
     performed_on: String(row.performed_on),
     created_at: String(row.created_at),
+    program_week: row.program_week == null ? null : Number(row.program_week),
+    program_day: row.program_day == null ? null : Number(row.program_day),
+    set_results: Array.isArray(row.set_results) ? row.set_results.map(Boolean) : null,
+    amrap_reps: row.amrap_reps == null ? null : Number(row.amrap_reps),
   };
 }
 
@@ -101,5 +106,27 @@ export function useEntries(userId: string | null, onError: (message: string) => 
     [entries, cloud, onError],
   );
 
-  return { entries, loading, add, remove, cloud };
+  const update = useCallback(
+    async (id: string, input: NewEntry) => {
+      const target = entries.find((e) => e.id === id);
+      if (!target) return false;
+      const updated: Entry = { ...target, ...input };
+      const next = entries.map((e) => (e.id === id ? updated : e));
+      setEntries(next);
+      if (!cloud || !supabase) {
+        saveLocal(next);
+        return true;
+      }
+      const { error } = await supabase.from("entries").update(input).eq("id", id);
+      if (error) {
+        setEntries((prev) => prev.map((e) => (e.id === id ? target : e)));
+        onError("Couldn't save your changes. Check your connection and try again.");
+        return false;
+      }
+      return true;
+    },
+    [entries, cloud, onError],
+  );
+
+  return { entries, loading, add, update, remove, cloud };
 }

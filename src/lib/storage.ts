@@ -21,4 +21,7 @@ export const KEYS = {
   unit: "hephaestus.unit",
   tab: "hephaestus.tab",
   deviceOnly: "hephaestus.deviceOnly",
+  maxes: "hephaestus.maxes",
+  week: "hephaestus.week",
+  day: "hephaestus.day",
 } as const;
