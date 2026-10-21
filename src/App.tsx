@@ -171,7 +171,16 @@ export default function App() {
                   toast={toast}
                 />
               ) : (
-                <ProgressView entries={entries} unit={unit} maxes={maxes} cycle={cycle.number} weights={weights} toast={toast} />
+                <ProgressView
+                  entries={entries}
+                  unit={unit}
+                  maxes={maxes}
+                  cycle={cycle.number}
+                  weights={weights}
+                  prs={prs}
+                  onRemove={remove}
+                  toast={toast}
+                />
               )}
             </Suspense>
           )}
