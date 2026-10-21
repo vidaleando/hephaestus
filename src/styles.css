@@ -149,6 +149,19 @@ main { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + 2
 main .wrap { padding-block: 20px; }
 .view { display: flex; flex-direction: column; gap: 20px; }
 .loading { color: var(--muted); text-align: center; padding-block: 40px; }
+.splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(36px, 11vw, 64px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
 h2 {
   margin: 0;

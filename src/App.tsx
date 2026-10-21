@@ -6,6 +6,7 @@ import { LogView } from "./components/LogView";
 import { ProgrammeView } from "./components/ProgrammeView";
 import { Segmented } from "./components/Segmented";
 import { SignIn } from "./components/SignIn";
+import { Splash } from "./components/Splash";
 import { personalRecords } from "./lib/lifting";
 import { KEYS } from "./lib/storage";
 import { supabase } from "./lib/supabase";
@@ -93,6 +94,8 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
+  if (busy && !needsSignIn) return <Splash />;
+
   return (
     <>
       <header className="top">
@@ -123,8 +126,6 @@ export default function App() {
         <div className="wrap">
           {needsSignIn ? (
             <SignIn onSkip={() => setDeviceOnly(true)} />
-          ) : busy ? (
-            <p className="loading">Loading your log…</p>
           ) : tab === "programme" ? (
             <>
               <InstallBanner />

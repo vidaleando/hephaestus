@@ -18,9 +18,29 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap"
     />
+    <style>
+      /* Loading screen, inlined so it paints before any script or stylesheet loads */
+      html, body { margin: 0; background: #eef1f5; }
+      .splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #eef1f5;
+        color: #15191f;
+        font-family: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+        font-weight: 700;
+        font-size: clamp(36px, 11vw, 64px);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      @media (prefers-color-scheme: dark) {
+        html, body, .splash { background: #0f1217; color: #e8ebf0; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="splash" role="status" aria-label="Loading Hephaestus">Hephaestus</div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

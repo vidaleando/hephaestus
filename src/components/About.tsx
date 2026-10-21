@@ -23,8 +23,8 @@ export function About({ open, onClose }: { open: boolean; onClose: () => void })
         <h2 id="about-title" className="about-title">
           Hephaestus
         </h2>
-        <p>A gym log built around the 5/3/1 programme, for you and your friends.</p>
-        <p className="about-credit">Created by Dr. Bradley Lang and Dr. Diego Vidal</p>
+        <p>A gym log built around the 5/3/1 programme devised by Jim Wendler.</p>
+        <p className="about-credit">Created by Milo and Diego Vidal</p>
         <button type="button" className="secondary" onClick={onClose} autoFocus>
           Close
         </button>
