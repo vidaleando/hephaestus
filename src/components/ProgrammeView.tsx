@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { fmt, niceDate } from "../lib/lifting";
 import {
+  currentPrescription,
   DAYS,
   findSessionEntry,
   LIFT_NAMES,
@@ -16,6 +17,7 @@ import {
 } from "../lib/programme";
 import { KEYS } from "../lib/storage";
 import type { Entry, NewEntry } from "../lib/types";
+import { useBackButton } from "../lib/useBackButton";
 import { usePersistentState } from "../lib/usePersistentState";
 import type { Cycle } from "../lib/useTrainingMaxes";
 import { AccessorySession } from "./AccessorySession";
@@ -72,6 +74,8 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
     setScreen({ name: "list" });
     window.scrollTo(0, 0);
   };
+  // The phone's back button leaves a lift, maxes or cycle screen for the day's list
+  useBackButton(screen.name !== "list", back);
   const saveFor = (existing?: Entry) => async (input: NewEntry) => {
     // New programme entries belong to the current cycle; edits keep the cycle they were logged in
     const entry = { ...input, cycle: existing ? (existing.cycle ?? 1) : cycle.number };
@@ -128,13 +132,15 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
       );
     }
     if (item.kind === "fixed") {
+      const now = currentPrescription(entries, day, item);
       return (
         <AccessorySession
           key={`${week}-${day}-${screen.index}`}
           name={item.name}
-          reps={item.reps}
-          sets={item.sets}
-          weight={item.weight}
+          reps={now.reps}
+          sets={now.sets}
+          weight={now.weight}
+          fromLog={now.fromLog}
           week={week}
           day={day}
           existing={existing}
@@ -207,7 +213,7 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
                     {item.name}
                     {item.kind === "531" && <span className="tag">5/3/1</span>}
                   </div>
-                  <div className="nums">{describe(item, week, maxes)}</div>
+                  <div className="nums">{describe(item, week, day, maxes, entries)}</div>
                 </div>
                 {done ? <DoneBadge entry={done} /> : <span className="chev" aria-hidden="true">›</span>}
               </button>
@@ -230,9 +236,10 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
   );
 }
 
-function describe(item: ProgrammeItem, week: Week, maxes: TrainingMaxes): string {
+function describe(item: ProgrammeItem, week: Week, day: Day, maxes: TrainingMaxes, entries: Entry[]): string {
   if (item.kind === "fixed") {
-    return `${item.reps} × ${item.sets} ${item.weight ? `@ ${fmt(item.weight)} kg` : "· bodyweight"}`;
+    const p = currentPrescription(entries, day, item);
+    return `${p.reps} × ${p.sets} ${p.weight ? `@ ${fmt(p.weight)} kg` : "· bodyweight"}`;
   }
   const sets = WEEK_SETS[week];
   const reps = sets.map((s) => `${s.reps}${s.amrap ? "+" : ""}`).join(" / ");

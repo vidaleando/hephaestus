@@ -13,6 +13,7 @@ import { supabase } from "./lib/supabase";
 import type { Unit } from "./lib/types";
 import { signOut, useAuth } from "./lib/useAuth";
 import { useBodyweights } from "./lib/useBodyweights";
+import { useBackButton } from "./lib/useBackButton";
 import { useEntries } from "./lib/useEntries";
 import { useSync } from "./lib/useSync";
 import { useTrainingMaxes } from "./lib/useTrainingMaxes";
@@ -53,6 +54,10 @@ export default function App() {
   const tab: Tab = storedTab === "history" ? "log" : storedTab;
   const [logMode, setLogMode] = usePersistentState<LogMode>(KEYS.logMode, "today");
   const [aboutOpen, setAboutOpen] = useState(false);
+
+  // Back from Log, Body or Progress returns to Programme; back in Programme leaves the app
+  useBackButton(tab !== "programme", () => setTab("programme"));
+  useBackButton(aboutOpen, () => setAboutOpen(false));
 
   const [toastMsg, setToastMsg] = useState<{ text: string; key: number } | null>(null);
   const toast = useCallback((text: string) => setToastMsg({ text, key: Date.now() }), []);

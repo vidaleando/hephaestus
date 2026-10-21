@@ -208,6 +208,37 @@ export function cyclePlusSets(entries: CycleEntry[], cycle: number, lift: Lift):
   return out;
 }
 
+export interface Prescription {
+  reps: number;
+  sets: number;
+  /** kg; 0 is bodyweight */
+  weight: number;
+  /** True when these numbers come from the last time it was logged, not the programme. */
+  fromLog: boolean;
+}
+
+/**
+ * What to do for a fixed-prescription exercise: whatever was last logged for it on this
+ * programme day (so a weight you raise carries forward), or the programme's numbers until then.
+ * Matched per day because the same exercise can differ between days (DB row: 15 vs 22.5 kg).
+ */
+export function currentPrescription(
+  entries: (CycleEntry & { weight: number; unit: string; reps: number; sets: number })[],
+  day: Day,
+  item: Extract<ProgrammeItem, { kind: "fixed" }>,
+): Prescription {
+  const name = item.name.trim().toLowerCase();
+  const last = entries
+    .filter((e) => e.program_day === day && !e.set_results && e.exercise.trim().toLowerCase() === name)
+    .sort((a, b) =>
+      a.performed_on === b.performed_on ? (a.created_at < b.created_at ? -1 : 1) : a.performed_on < b.performed_on ? -1 : 1,
+    )
+    .pop();
+  if (!last) return { reps: item.reps, sets: item.sets, weight: item.weight, fromLog: false };
+  const kg = last.unit === "lb" ? last.weight * 0.45359237 : last.weight;
+  return { reps: last.reps, sets: last.sets, weight: Math.round(kg * 100) / 100, fromLog: true };
+}
+
 /** The 1-rep max that gives a training max `increase` kg higher than today's. */
 export function maxAfterIncrease(oneRepMax: number, increase: number): number {
   return Math.round(((trainingMax(oneRepMax) + increase) / TRAINING_MAX_RATIO) * 100) / 100;

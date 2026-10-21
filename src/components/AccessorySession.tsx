@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { todayISO } from "../lib/lifting";
+import { fmt, todayISO } from "../lib/lifting";
 import type { Day, Week } from "../lib/programme";
 import type { Entry, NewEntry } from "../lib/types";
 import { BackBar } from "./BackBar";
@@ -10,6 +10,8 @@ interface Props {
   sets: number;
   /** kg; 0 is bodyweight */
   weight: number;
+  /** The numbers above are from the last time this was logged, not the programme's defaults. */
+  fromLog: boolean;
   week: Week;
   day: Day;
   existing?: Entry;
@@ -18,7 +20,7 @@ interface Props {
 }
 
 /** Log a fixed-prescription exercise, pre-filled from the programme. */
-export function AccessorySession({ name, reps, sets, weight, week, day, existing, onSave, onBack }: Props) {
+export function AccessorySession({ name, reps, sets, weight, fromLog, week, day, existing, onSave, onBack }: Props) {
   const [w, setW] = useState(() => String(existing?.weight ?? weight));
   const [r, setR] = useState(() => String(existing?.reps ?? reps));
   const [s, setS] = useState(() => String(existing?.sets ?? sets));
@@ -54,7 +56,7 @@ export function AccessorySession({ name, reps, sets, weight, week, day, existing
       <div className="session-head">
         <h3>{name}</h3>
         <p className="hint">
-          Programme: {reps} × {sets} {weight ? `@ ${weight} kg` : "· bodyweight"}
+          {fromLog ? "Last time" : "Programme"}: {reps} × {sets} {weight ? `@ ${fmt(weight)} kg` : "· bodyweight"}
         </p>
       </div>
       <form className="panel" onSubmit={submit} autoComplete="off">
