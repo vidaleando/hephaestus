@@ -13,7 +13,7 @@ import { supabase } from "./lib/supabase";
 import type { Unit } from "./lib/types";
 import { signOut, useAuth } from "./lib/useAuth";
 import { useBodyweights } from "./lib/useBodyweights";
-import { useBackButton } from "./lib/useBackButton";
+import { onRootBack, useBackButton } from "./lib/useBackButton";
 import { useEntries } from "./lib/useEntries";
 import { useSync } from "./lib/useSync";
 import { useTrainingMaxes } from "./lib/useTrainingMaxes";
@@ -61,6 +61,7 @@ export default function App() {
 
   const [toastMsg, setToastMsg] = useState<{ text: string; key: number } | null>(null);
   const toast = useCallback((text: string) => setToastMsg({ text, key: Date.now() }), []);
+  useEffect(() => onRootBack(() => toast("To leave Hephaestus, use your phone's Home button.")), [toast]);
   useEffect(() => {
     if (!toastMsg) return;
     const t = setTimeout(() => setToastMsg(null), 2400);

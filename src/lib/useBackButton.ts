@@ -11,6 +11,18 @@ interface Layer {
 }
 
 const layers: Layer[] = [];
+const rootListeners = new Set<() => void>();
+
+// In the installed app, back on the home screen must not leave: on some phones (Firefox on
+// Android) leaving an installed web app shows a black screen instead of closing it. A guard
+// entry sits under everything; back at the top level lands on it and is put straight back.
+const installed =
+  window.matchMedia("(display-mode: standalone)").matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+if (installed) {
+  history.replaceState({ hephaestus: "root" }, "");
+  history.pushState({ hephaestus: "guard" }, "");
+}
 
 // history.back() completes asynchronously (with a popstate), so history changes are run
 // strictly in order: anything requested while one of our own "back" steps is in flight waits.
@@ -48,8 +60,18 @@ window.addEventListener("popstate", () => {
   if (top) {
     top.popped = true;
     top.close();
+  } else if (installed) {
+    // Back at the top level: stay in the app
+    history.pushState({ hephaestus: "guard" }, "");
+    rootListeners.forEach((l) => l());
   }
 });
+
+/** Called when back is pressed at the app's top level in the installed app (which stays put). */
+export function onRootBack(listener: () => void): () => void {
+  rootListeners.add(listener);
+  return () => rootListeners.delete(listener);
+}
 
 /** While `active`, the phone's back button calls `onBack` instead of leaving the screen. */
 export function useBackButton(active: boolean, onBack: () => void) {
