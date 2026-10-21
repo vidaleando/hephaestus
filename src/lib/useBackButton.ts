@@ -15,13 +15,50 @@ const rootListeners = new Set<() => void>();
 
 // In the installed app, back on the home screen must not leave: on some phones (Firefox on
 // Android) leaving an installed web app shows a black screen instead of closing it. A guard
-// entry sits under everything; back at the top level lands on it and is put straight back.
+// entry sits under everything; back at the top level lands on it and a new guard is added.
+//
+// Browsers skip history entries a page adds before the user has interacted with it (so sites
+// can't trap the back button), so a guard only counts if it's added during a tap or key press.
+// One is added on the first tap, and again on the next tap after each use.
+
+/** Launches from the home-screen icon open /?source=pwa (see the manifest's start_url). */
+function launchedFromHomeScreen(): boolean {
+  const params = new URLSearchParams(location.search);
+  if (params.get("source") === "pwa") {
+    try {
+      sessionStorage.setItem("hephaestus.installed", "1");
+    } catch {
+      // Storage blocked; the display-mode check below still applies
+    }
+    params.delete("source");
+    const rest = params.toString();
+    history.replaceState(history.state, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);
+    return true;
+  }
+  try {
+    return sessionStorage.getItem("hephaestus.installed") === "1";
+  } catch {
+    return false;
+  }
+}
+
 const installed =
-  window.matchMedia("(display-mode: standalone)").matches ||
+  launchedFromHomeScreen() ||
+  ["standalone", "fullscreen", "minimal-ui"].some((m) => window.matchMedia(`(display-mode: ${m})`).matches) ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+let guardNeeded = installed;
+
+function addGuard() {
+  if (!guardNeeded) return;
+  guardNeeded = false;
+  inOrder(() => history.pushState({ hephaestus: "guard" }, ""));
+}
+
 if (installed) {
-  history.replaceState({ hephaestus: "root" }, "");
-  history.pushState({ hephaestus: "guard" }, "");
+  // Capture phase, so the guard goes in before whatever the tap opens
+  window.addEventListener("pointerdown", addGuard, true);
+  window.addEventListener("keydown", addGuard, true);
 }
 
 // history.back() completes asynchronously (with a popstate), so history changes are run
@@ -61,8 +98,10 @@ window.addEventListener("popstate", () => {
     top.popped = true;
     top.close();
   } else if (installed) {
-    // Back at the top level: stay in the app
+    // Back at the top level used up a guard: stay in the app, and add a fresh guard on the
+    // next tap. Pushing one right away too costs nothing where the browser honours it.
     history.pushState({ hephaestus: "guard" }, "");
+    guardNeeded = true;
     rootListeners.forEach((l) => l());
   }
 });

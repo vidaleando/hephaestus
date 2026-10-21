@@ -15,7 +15,10 @@ export default defineConfig({
         theme_color: "#1f4fd1",
         background_color: "#eef1f5",
         display: "standalone",
-        start_url: "/",
+        // Keeps the app's identity fixed now that start_url carries a query string
+        id: "/",
+        // Lets the app tell a home-screen launch from a browser tab (see useBackButton.ts)
+        start_url: "/?source=pwa",
         icons: [
           { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
