@@ -903,3 +903,45 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   .grid3 { grid-template-columns: 1fr 1fr; }
   .grid3 label:first-child { grid-column: 1 / -1; }
 }
+
+/* Deload */
+.go-on { gap: 12px; }
+.go-on p { margin: 0; font-weight: 600; }
+.go-on-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.go-on-choices .primary,
+.go-on-choices .secondary {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px;
+}
+.deload-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+}
+.deload-note strong::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: 2px;
+}
+.deload-note strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.deload-note p { margin: 0; color: var(--muted); }

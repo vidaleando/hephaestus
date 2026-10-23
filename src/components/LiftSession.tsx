@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { fmt, todayISO } from "../lib/lifting";
-import { setWeight, suggestedIncrease, trainingMax, WEEK_SETS, type Day, type Lift, type Week } from "../lib/programme";
+import {
+  DELOAD,
+  setsFor,
+  setWeight,
+  suggestedIncrease,
+  trainingMax,
+  weekLabel,
+  type Day,
+  type Lift,
+  type ProgrammeWeek,
+} from "../lib/programme";
 import type { Entry, NewEntry } from "../lib/types";
 import { BackBar } from "./BackBar";
 
 interface Props {
   name: string;
   lift: Lift;
-  week: Week;
+  week: ProgrammeWeek;
   day: Day;
   oneRepMax: number;
   existing?: Entry;
@@ -15,28 +25,36 @@ interface Props {
   onBack: () => void;
 }
 
-/** Log a 5/3/1 main lift: made or missed for the first two sets, and reps done on the + set. */
+/**
+ * Log a 5/3/1 main lift: made or missed for each set, and reps done on the + set when the
+ * week has one (the deload week doesn't).
+ */
 export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBack }: Props) {
-  const sets = WEEK_SETS[week];
+  const sets = setsFor(week);
+  const plus = sets.find((s) => s.amrap);
+  const fixedCount = sets.filter((s) => !s.amrap).length;
+
   const [results, setResults] = useState<(boolean | null)[]>(() =>
-    existing?.set_results ? existing.set_results.slice(0, 2) : [null, null],
+    existing?.set_results ? existing.set_results.slice(0, fixedCount) : Array(fixedCount).fill(null),
   );
   const [repsDone, setRepsDone] = useState(() => (existing?.amrap_reps != null ? String(existing.amrap_reps) : ""));
   const [saving, setSaving] = useState(false);
 
-  const last = sets[2];
+  const last = sets[sets.length - 1];
   const lastWeight = setWeight(oneRepMax, last);
   const reps = parseInt(repsDone, 10);
   const hasReps = reps >= 0;
-  const increase = reps > 0 ? suggestedIncrease(oneRepMax, week, reps) : 0;
-  const complete = results.every((r) => r !== null) && hasReps;
+  const increase = plus && week !== DELOAD && reps > 0 ? suggestedIncrease(oneRepMax, week, reps) : 0;
+  const setsMarked = results.every((r) => r !== null);
+  const complete = setsMarked && (!plus || hasReps);
 
   function mark(i: number, made: boolean) {
     setResults(results.map((r, j) => (j === i ? made : r)));
   }
 
   function step(delta: number) {
-    const from = hasReps ? reps : delta > 0 ? last.reps - 1 : last.reps + 1;
+    if (!plus) return;
+    const from = hasReps ? reps : delta > 0 ? plus.reps - 1 : plus.reps + 1;
     setRepsDone(String(Math.min(100, Math.max(0, from + delta))));
   }
 
@@ -46,24 +64,36 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
       exercise: name,
       weight: lastWeight,
       unit: "kg",
-      reps: reps > 0 ? reps : last.reps,
+      reps: plus && reps > 0 ? reps : last.reps,
       sets: sets.length,
       performed_on: existing?.performed_on ?? todayISO(),
       program_week: week,
       program_day: day,
-      set_results: [...results.map(Boolean), reps >= last.reps],
-      amrap_reps: reps,
+      set_results: plus ? [...results.map(Boolean), reps >= plus.reps] : results.map(Boolean),
+      amrap_reps: plus ? reps : null,
     });
     setSaving(false);
     if (ok) onBack();
   }
 
+  const buttonLabel = complete
+    ? existing
+      ? `Update ${name}`
+      : `Save ${name}`
+    : !setsMarked
+      ? fixedCount === 1
+        ? "Mark set 1"
+        : `Mark sets ${Array.from({ length: fixedCount }, (_, i) => i + 1).join(" and ")}`
+      : "Enter reps on the + set";
+
   return (
     <section className="view">
-      <BackBar label={`Week ${week} · Day ${day}`} onBack={onBack} />
+      <BackBar label={`${weekLabel(week)} · Day ${day}`} onBack={onBack} />
       <div className="session-head">
         <h3>{name}</h3>
-        <p className="hint">Training max {fmt(trainingMax(oneRepMax))} kg</p>
+        <p className="hint">
+          Training max {fmt(trainingMax(oneRepMax))} kg{week === DELOAD ? " · deload: half the sets and reps" : ""}
+        </p>
       </div>
 
       <ol className="sets">
@@ -139,7 +169,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
       </ol>
 
       <button className="primary" type="button" disabled={!complete || saving} onClick={save}>
-        {complete ? (existing ? `Update ${name}` : `Save ${name}`) : hasReps ? "Mark sets 1 and 2" : "Enter reps on the + set"}
+        {buttonLabel}
       </button>
     </section>
   );

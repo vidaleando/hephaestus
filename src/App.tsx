@@ -70,7 +70,14 @@ export default function App() {
 
   const userId = session?.user.id ?? null;
   const { entries, loading, add, update, remove, cloud } = useEntries(userId, toast);
-  const { maxes, cycle, loading: maxesLoading, save: saveMaxes, startNextCycle } = useTrainingMaxes(userId, toast);
+  const {
+    maxes,
+    cycle,
+    loading: maxesLoading,
+    save: saveMaxes,
+    startNextCycle,
+    startDeload,
+  } = useTrainingMaxes(userId, toast);
   const { weights, loading: weightsLoading, add: addWeight, remove: removeWeight } = useBodyweights(userId, toast);
   const prs = useMemo(() => personalRecords(entries), [entries]);
 
@@ -141,6 +148,7 @@ export default function App() {
                 cycle={cycle}
                 onSaveMaxes={saveMaxes}
                 onStartCycle={startNextCycle}
+                onStartDeload={startDeload}
                 onAdd={add}
                 onUpdate={update}
                 toast={toast}

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { fmt, todayISO } from "../lib/lifting";
-import type { Day, Week } from "../lib/programme";
+import { DELOAD, weekLabel, type Day, type ProgrammeWeek } from "../lib/programme";
 import type { Entry, NewEntry } from "../lib/types";
 import { BackBar } from "./BackBar";
 
@@ -12,7 +12,7 @@ interface Props {
   weight: number;
   /** The numbers above are from the last time this was logged, not the programme's defaults. */
   fromLog: boolean;
-  week: Week;
+  week: ProgrammeWeek;
   day: Day;
   existing?: Entry;
   onSave: (entry: NewEntry) => Promise<boolean>;
@@ -52,11 +52,12 @@ export function AccessorySession({ name, reps, sets, weight, fromLog, week, day,
 
   return (
     <section className="view">
-      <BackBar label={`Week ${week} · Day ${day}`} onBack={onBack} />
+      <BackBar label={`${weekLabel(week)} · Day ${day}`} onBack={onBack} />
       <div className="session-head">
         <h3>{name}</h3>
         <p className="hint">
-          {fromLog ? "Last time" : "Programme"}: {reps} × {sets} {weight ? `@ ${fmt(weight)} kg` : "· bodyweight"}
+          {week === DELOAD ? "Deload (half the sets and reps)" : fromLog ? "Last time" : "Programme"}: {reps} × {sets}{" "}
+          {weight ? `@ ${fmt(weight)} kg` : "· bodyweight"}
         </p>
       </div>
       <form className="panel" onSubmit={submit} autoComplete="off">

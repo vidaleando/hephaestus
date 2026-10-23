@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { convert, fmt } from "../lib/lifting";
+import { weekLabel } from "../lib/programme";
 import type { Entry, Unit } from "../lib/types";
 
 interface Props {
@@ -38,10 +39,15 @@ function EntryRow({ entry, unit, isPR, onRemove }: { entry: Entry; unit: Unit; i
           {isPR && <span className="pr-tag">PR</span>}
         </div>
         <div className="nums">
-          {entry.set_results ? (
+          {entry.set_results && entry.amrap_reps != null ? (
             <>
-              + set {weight} × {entry.amrap_reps ?? "?"} · {entry.set_results.filter(Boolean).length}/
-              {entry.set_results.length} sets made{entry.program_week ? ` · Week ${entry.program_week}` : ""}
+              + set {weight} × {entry.amrap_reps} · {entry.set_results.filter(Boolean).length}/
+              {entry.set_results.length} sets made{entry.program_week ? ` · ${weekLabel(entry.program_week)}` : ""}
+            </>
+          ) : entry.set_results ? (
+            <>
+              {weight} × {entry.reps} · {entry.set_results.filter(Boolean).length}/{entry.set_results.length} sets made
+              {entry.program_week ? ` · ${weekLabel(entry.program_week)}` : ""}
             </>
           ) : (
             <>

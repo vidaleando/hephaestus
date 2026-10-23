@@ -3,15 +3,20 @@ import { fmt, niceDate } from "../lib/lifting";
 import {
   currentPrescription,
   DAYS,
+  DELOAD,
+  deloadPrescription,
   findSessionEntry,
   LIFT_NAMES,
+  nextDeloadDay,
   nextSession,
   sessionDone,
   SESSIONS,
+  setsFor,
   setWeight,
-  WEEK_SETS,
+  weekLabel,
   type Day,
   type ProgrammeItem,
+  type ProgrammeWeek,
   type TrainingMaxes,
   type Week,
 } from "../lib/programme";
@@ -32,6 +37,7 @@ interface Props {
   cycle: Cycle;
   onSaveMaxes: (maxes: TrainingMaxes) => Promise<boolean>;
   onStartCycle: (maxes: TrainingMaxes) => Promise<boolean>;
+  onStartDeload: () => Promise<boolean>;
   onAdd: (entry: NewEntry) => Promise<boolean>;
   onUpdate: (id: string, entry: NewEntry) => Promise<boolean>;
   toast: (message: string) => void;
@@ -44,28 +50,50 @@ const DAY_HINTS = Object.fromEntries(
   ([1, 2, 3] as Day[]).map((d) => [d, DAYS[d].filter((i) => i.kind === "531").map((i) => i.name).join(" · ")]),
 ) as Record<Day, string>;
 
-export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle, onAdd, onUpdate, toast }: Props) {
-  const [week, setWeek] = usePersistentState<Week>(KEYS.week, 1);
+export function ProgrammeView({
+  entries,
+  maxes,
+  cycle,
+  onSaveMaxes,
+  onStartCycle,
+  onStartDeload,
+  onAdd,
+  onUpdate,
+  toast,
+}: Props) {
+  const [storedWeek, setWeek] = usePersistentState<ProgrammeWeek>(KEYS.week, 1);
   const [day, setDay] = usePersistentState<Day>(KEYS.day, 1);
   const [screen, setScreen] = useState<Screen>({ name: "list" });
 
+  // The deload week only exists once this cycle has gone into it
+  const week: ProgrammeWeek = storedWeek === DELOAD && !cycle.deload ? 1 : storedWeek;
   const items = DAYS[day];
   const logged = (item: ProgrammeItem) => findSessionEntry(entries, cycle.number, week, day, item.name);
-  const next = nextSession(entries, cycle.number);
+  const workingNext = nextSession(entries, cycle.number);
+  const deloadNext = cycle.deload ? nextDeloadDay(entries, cycle.number) : null;
+  const next: { week: ProgrammeWeek; day: Day } | null = cycle.deload
+    ? deloadNext
+      ? { week: DELOAD, day: deloadNext }
+      : null
+    : workingNext;
   const doneCount = SESSIONS.filter((x) => sessionDone(entries, cycle.number, x.week, x.day)).length;
+  const deloadDone = ([1, 2, 3] as Day[]).filter((d) => sessionDone(entries, cycle.number, DELOAD, d)).length;
 
-  const weekOptions = ([1, 2, 3] as Week[]).map((w) => ({
+  const weekOptions: { value: ProgrammeWeek; label: string; hint: string }[] = ([1, 2, 3] as Week[]).map((w) => ({
     value: w,
     label: `Week ${w}`,
     hint: ([1, 2, 3] as Day[]).every((d) => sessionDone(entries, cycle.number, w, d)) ? "Done ✓" : WEEK_HINTS[w],
   }));
+  if (cycle.deload) {
+    weekOptions.push({ value: DELOAD, label: "Deload", hint: deloadNext === null ? "Done ✓" : "Recover" });
+  }
   const dayOptions = ([1, 2, 3] as Day[]).map((d) => ({
     value: d,
     label: `Day ${d}`,
     hint: sessionDone(entries, cycle.number, week, d) ? `${DAY_HINTS[d]} ✓` : DAY_HINTS[d],
   }));
 
-  function goTo(w: Week, d: Day) {
+  function goTo(w: ProgrammeWeek, d: Day) {
     setWeek(w);
     setDay(d);
   }
@@ -83,6 +111,12 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
     if (ok) toast(`Saved ${entry.exercise}`);
     return ok;
   };
+  const goToDeload = async () => {
+    if (await onStartDeload()) {
+      goTo(DELOAD, 1);
+      toast("Deload week started");
+    }
+  };
   const saveMaxes = async (next: TrainingMaxes) => {
     const ok = await onSaveMaxes(next);
     if (ok) toast("Maxes saved");
@@ -99,7 +133,7 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
         entries={entries}
         maxes={maxes}
         cycle={cycle.number}
-        complete={next === null}
+        complete={workingNext === null}
         onStart={async (m) => {
           const ok = await onStartCycle(m);
           if (ok) {
@@ -132,7 +166,8 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
       );
     }
     if (item.kind === "fixed") {
-      const now = currentPrescription(entries, day, item);
+      const usual = currentPrescription(entries, day, item);
+      const now = week === DELOAD ? deloadPrescription(usual) : usual;
       return (
         <AccessorySession
           key={`${week}-${day}-${screen.index}`}
@@ -160,23 +195,49 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
           <span className="cycle-name">Cycle {cycle.number}</span>
           <span className="sub">
             {doneCount} of {SESSIONS.length} sessions
+            {cycle.deload ? ` · deload ${deloadDone} of 3` : ""}
             {cycle.startedOn ? ` · since ${niceDate(cycle.startedOn, { day: "numeric", month: "short" })}` : ""}
           </span>
         </div>
         {next && (next.week !== week || next.day !== day) && (
           <button type="button" className="chip next-up" onClick={() => goTo(next.week, next.day)}>
-            Next up: Week {next.week} · Day {next.day}
+            Next up: {weekLabel(next.week)} · Day {next.day}
           </button>
         )}
       </div>
 
-      {next === null && (
+      {workingNext === null && !cycle.deload && (
+        <div className="panel go-on">
+          <p>Cycle {cycle.number} is complete. Go on to:</p>
+          <div className="go-on-choices">
+            <button type="button" className="primary" onClick={() => setScreen({ name: "cycle" })}>
+              Next cycle
+            </button>
+            <button type="button" className="secondary" onClick={goToDeload}>
+              Deload week
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cycle.deload && deloadNext === null && (
         <div className="notice">
-          <p>Cycle {cycle.number} is complete. Raise your training maxes and start the next one.</p>
+          <p>Deload week done. Raise your training maxes and start the next cycle.</p>
           <button type="button" className="link" onClick={() => setScreen({ name: "cycle" })}>
             Start cycle {cycle.number + 1}
           </button>
         </div>
+      )}
+
+      {cycle.deload && week === DELOAD && (
+        <aside className="deload-note">
+          <strong>Deload week</strong>
+          <p>
+            Lighter work keeps blood flowing to repair what training has broken down, while the small stresses of the
+            last three weeks recover. Skip any optional assistance days this week; extra work gets in the way of
+            recovery.
+          </p>
+        </aside>
       )}
 
       <Segmented label="Week" options={weekOptions} value={week} onChange={setWeek} />
@@ -195,7 +256,7 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
 
       <div className="day">
         <h2>
-          Week {week} · Day {day}
+          {weekLabel(week)} · Day {day}
         </h2>
         <div className="list">
           {items.map((item, index) => {
@@ -236,12 +297,13 @@ export function ProgrammeView({ entries, maxes, cycle, onSaveMaxes, onStartCycle
   );
 }
 
-function describe(item: ProgrammeItem, week: Week, day: Day, maxes: TrainingMaxes, entries: Entry[]): string {
+function describe(item: ProgrammeItem, week: ProgrammeWeek, day: Day, maxes: TrainingMaxes, entries: Entry[]): string {
   if (item.kind === "fixed") {
-    const p = currentPrescription(entries, day, item);
+    const usual = currentPrescription(entries, day, item);
+    const p = week === DELOAD ? deloadPrescription(usual) : usual;
     return `${p.reps} × ${p.sets} ${p.weight ? `@ ${fmt(p.weight)} kg` : "· bodyweight"}`;
   }
-  const sets = WEEK_SETS[week];
+  const sets = setsFor(week);
   const reps = sets.map((s) => `${s.reps}${s.amrap ? "+" : ""}`).join(" / ");
   const max = maxes[item.lift];
   if (max == null) return `${reps} · needs your ${LIFT_NAMES[item.lift]} max`;

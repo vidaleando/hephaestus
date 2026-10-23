@@ -6,6 +6,7 @@ import type { Cell, Worksheet } from "exceljs";
 import { convert, estimated1RM, sameExercise, todayISO } from "./lifting";
 import {
   DAYS,
+  DELOAD,
   entryCycle,
   LIFT_NAMES,
   roundToPlate,
@@ -287,11 +288,13 @@ function buildArchiveSheet(ws: Worksheet, entries: Entry[]) {
   });
 }
 
-/** Everything logged that isn't a 5/3/1 main lift session. */
+/** Everything logged that isn't a 5/3/1 main-lift session with a + set. */
 function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
   const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Sets", "Cycle", "Week", "Day"];
   ws.addRow(headers).font = { bold: true };
-  for (const e of entries.filter((x) => !x.set_results).sort(byDateAsc)) {
+  // Everything except 5/3/1 sessions with a + set (those are in the 531 sheets); deload
+  // main-lift sessions have no + set, so they're listed here too
+  for (const e of entries.filter((x) => !x.set_results || x.amrap_reps == null).sort(byDateAsc)) {
     ws.addRow([
       new Date(e.performed_on + "T12:00:00"),
       e.exercise,
@@ -300,7 +303,7 @@ function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
       e.reps,
       e.sets,
       entryCycle(e) ?? "",
-      e.program_week ?? "",
+      e.program_week === DELOAD ? "Deload" : (e.program_week ?? ""),
       e.program_day ?? "",
     ]);
   }

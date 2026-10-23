@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { convert, fmt, niceDate, sortEntries, todayISO } from "../lib/lifting";
-import { entryCycle } from "../lib/programme";
+import { entryCycle, weekLabel } from "../lib/programme";
 import type { Bodyweight, Entry, Unit } from "../lib/types";
 import { EntryList } from "./EntryList";
 
@@ -150,7 +150,7 @@ export function CalendarView({ entries, weights, unit, prs, onRemove }: Props) {
         <h2>{selected === today ? "Today" : niceDate(selected, { weekday: "long", day: "numeric", month: "long" })}</h2>
         {session && (
           <p className="hint">
-            Cycle {entryCycle(session)} · Week {session.program_week} · Day {session.program_day}
+            Cycle {entryCycle(session)} · {weekLabel(session.program_week)} · Day {session.program_day}
           </p>
         )}
         {weighIn && (

@@ -9,9 +9,11 @@ export interface Cycle {
   number: number;
   /** YYYY-MM-DD, or null for a cycle started before tracking existed. */
   startedOn: string | null;
+  /** In the optional deload week that follows the three working weeks. */
+  deload: boolean;
 }
 
-const FIRST_CYCLE: Cycle = { number: 1, startedOn: null };
+const FIRST_CYCLE: Cycle = { number: 1, startedOn: null, deload: false };
 
 function parse(row: Record<string, unknown>): { maxes: TrainingMaxes; cycle: Cycle } {
   const maxes = { ...EMPTY_MAXES };
@@ -21,6 +23,7 @@ function parse(row: Record<string, unknown>): { maxes: TrainingMaxes; cycle: Cyc
     cycle: {
       number: row.cycle == null ? 1 : Number(row.cycle),
       startedOn: row.cycle_started_on == null ? null : String(row.cycle_started_on),
+      deload: row.deload === true,
     },
   };
 }
@@ -32,13 +35,15 @@ function parse(row: Record<string, unknown>): { maxes: TrainingMaxes; cycle: Cyc
 export function useTrainingMaxes(userId: string | null, onError: (message: string) => void) {
   const cloud = supabase !== null && userId !== null;
   const [maxes, setMaxes] = useState<TrainingMaxes>(() => (cloud ? EMPTY_MAXES : readLocal(KEYS.maxes, EMPTY_MAXES)));
-  const [cycle, setCycle] = useState<Cycle>(() => (cloud ? FIRST_CYCLE : readLocal(KEYS.cycle, FIRST_CYCLE)));
+  // Older device-only saves have no `deload` field
+  const loadLocalCycle = () => ({ ...FIRST_CYCLE, ...readLocal<Partial<Cycle>>(KEYS.cycle, FIRST_CYCLE) });
+  const [cycle, setCycle] = useState<Cycle>(() => (cloud ? FIRST_CYCLE : loadLocalCycle()));
   const [loading, setLoading] = useState(cloud);
 
   useEffect(() => {
     if (!supabase || !userId) {
       setMaxes(readLocal(KEYS.maxes, EMPTY_MAXES));
-      setCycle(readLocal(KEYS.cycle, FIRST_CYCLE));
+      setCycle(loadLocalCycle());
       setLoading(false);
       return;
     }
@@ -50,7 +55,7 @@ export function useTrainingMaxes(userId: string | null, onError: (message: strin
       await flush(userId);
       const { data, error } = await db
         .from("training_maxes")
-        .select("squat, bench, deadlift, ohp, cycle, cycle_started_on")
+        .select("squat, bench, deadlift, ohp, cycle, cycle_started_on, deload")
         .maybeSingle();
       if (cancelled) return;
       // A save made offline wins over what the server (or its cached copy) says
@@ -65,12 +70,13 @@ export function useTrainingMaxes(userId: string | null, onError: (message: strin
         // First sign-in: carry over maxes entered in device-only mode
         const local = readLocal(KEYS.maxes, EMPTY_MAXES);
         if (LIFTS.some((l) => local[l] != null)) {
-          const localCycle = readLocal(KEYS.cycle, FIRST_CYCLE);
+          const localCycle = loadLocalCycle();
           const { error: upErr } = await db.from("training_maxes").upsert({
             ...local,
             user_id: userId,
             cycle: localCycle.number,
             cycle_started_on: localCycle.startedOn,
+            deload: localCycle.deload,
           });
           if (!upErr) {
             setMaxes(local);
@@ -105,6 +111,7 @@ export function useTrainingMaxes(userId: string | null, onError: (message: strin
           user_id: userId,
           cycle: nextCycle.number,
           cycle_started_on: nextCycle.startedOn,
+          deload: nextCycle.deload,
           updated_at: new Date().toISOString(),
         },
       });
@@ -123,9 +130,12 @@ export function useTrainingMaxes(userId: string | null, onError: (message: strin
 
   /** Begin the next cycle with new 1-rep maxes. */
   const startNextCycle = useCallback(
-    (next: TrainingMaxes) => persist(next, { number: cycle.number + 1, startedOn: todayISO() }),
+    (next: TrainingMaxes) => persist(next, { number: cycle.number + 1, startedOn: todayISO(), deload: false }),
     [persist, cycle],
   );
 
-  return { maxes, cycle, loading, save, startNextCycle };
+  /** Go into the deload week at the end of this cycle. */
+  const startDeload = useCallback(() => persist(maxes, { ...cycle, deload: true }), [persist, maxes, cycle]);
+
+  return { maxes, cycle, loading, save, startNextCycle, startDeload };
 }

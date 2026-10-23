@@ -2,6 +2,9 @@
 
 export type Lift = "squat" | "bench" | "deadlift" | "ohp";
 export type Week = 1 | 2 | 3;
+/** The optional deload week runs as week 4 of a cycle, after the three working weeks. */
+export const DELOAD = 4 as const;
+export type ProgrammeWeek = Week | typeof DELOAD;
 export type Day = 1 | 2 | 3;
 
 export const LIFTS: Lift[] = ["squat", "bench", "deadlift", "ohp"];
@@ -78,6 +81,33 @@ export const DAYS: Record<Day, ProgrammeItem[]> = {
     fixed("BB curls", 15, 3, 25),
   ],
 };
+
+// ---- Deload ----
+
+/** Half, rounded up, so nothing drops to zero (3 sets → 2, 5 reps → 3). */
+const half = (n: number) => Math.max(1, Math.ceil(n / 2));
+
+/**
+ * Deload main sets: half the sets and half the reps of Week 1 (65% and 75% for 3 reps),
+ * with no + set.
+ */
+export const DELOAD_SETS: MainSet[] = WEEK_SETS[1]
+  .slice(0, half(WEEK_SETS[1].length))
+  .map((s) => ({ ...s, reps: half(s.reps), amrap: false }));
+
+/** The main sets for any programme week, deload included. */
+export function setsFor(week: ProgrammeWeek): MainSet[] {
+  return week === DELOAD ? DELOAD_SETS : WEEK_SETS[week];
+}
+
+/** Halve a fixed exercise's sets and reps for the deload week. */
+export function deloadPrescription<T extends { reps: number; sets: number }>(p: T): T {
+  return { ...p, reps: half(p.reps), sets: half(p.sets) };
+}
+
+export function weekLabel(week: ProgrammeWeek | number | null | undefined): string {
+  return week === DELOAD ? "Deload" : `Week ${week}`;
+}
 
 /** Round to the nearest 2.5 kg, as the spreadsheet does. */
 export function roundToPlate(kg: number): number {
@@ -159,7 +189,7 @@ export function entryCycle(e: CycleEntry): number | null {
 export function findSessionEntry<T extends CycleEntry>(
   entries: T[],
   cycle: number,
-  week: Week,
+  week: ProgrammeWeek,
   day: Day,
   exercise: string,
 ): T | undefined {
@@ -177,13 +207,18 @@ export function findSessionEntry<T extends CycleEntry>(
 }
 
 /** A session counts as done once all of its 5/3/1 lifts are logged. */
-export function sessionDone(entries: CycleEntry[], cycle: number, week: Week, day: Day): boolean {
+export function sessionDone(entries: CycleEntry[], cycle: number, week: ProgrammeWeek, day: Day): boolean {
   return DAYS[day]
     .filter((i) => i.kind === "531")
     .every((i) => findSessionEntry(entries, cycle, week, day, i.name)?.set_results);
 }
 
-/** The first session of the cycle that isn't done yet, or null when the cycle is complete. */
+/** The first deload day not yet done, or null once all three are. */
+export function nextDeloadDay(entries: CycleEntry[], cycle: number): Day | null {
+  return ([1, 2, 3] as Day[]).find((d) => !sessionDone(entries, cycle, DELOAD, d)) ?? null;
+}
+
+/** The first session of the cycle's three working weeks that isn't done yet, or null when they all are. */
 export function nextSession(entries: CycleEntry[], cycle: number): { week: Week; day: Day } | null {
   return SESSIONS.find((s) => !sessionDone(entries, cycle, s.week, s.day)) ?? null;
 }
@@ -229,7 +264,14 @@ export function currentPrescription(
 ): Prescription {
   const name = item.name.trim().toLowerCase();
   const last = entries
-    .filter((e) => e.program_day === day && !e.set_results && e.exercise.trim().toLowerCase() === name)
+    // Deload entries are halved, so they never set the prescription for normal weeks
+    .filter(
+      (e) =>
+        e.program_day === day &&
+        e.program_week !== DELOAD &&
+        !e.set_results &&
+        e.exercise.trim().toLowerCase() === name,
+    )
     .sort((a, b) =>
       a.performed_on === b.performed_on ? (a.created_at < b.created_at ? -1 : 1) : a.performed_on < b.performed_on ? -1 : 1,
     )
