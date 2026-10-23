@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fmt, todayISO } from "../lib/lifting";
+import { cleanNotes, fmt, todayISO } from "../lib/lifting";
 import {
   DELOAD,
   setsFor,
@@ -13,6 +13,7 @@ import {
 } from "../lib/programme";
 import type { Entry, NewEntry } from "../lib/types";
 import { BackBar } from "./BackBar";
+import { NotesField, PreviousNote } from "./NotesField";
 
 interface Props {
   name: string;
@@ -21,6 +22,8 @@ interface Props {
   day: Day;
   oneRepMax: number;
   existing?: Entry;
+  /** The last note on this lift, shown above the notes box. */
+  lastNote?: Entry;
   onSave: (entry: NewEntry) => Promise<boolean>;
   onBack: () => void;
 }
@@ -29,7 +32,7 @@ interface Props {
  * Log a 5/3/1 main lift: made or missed for each set, and reps done on the + set when the
  * week has one (the deload week doesn't).
  */
-export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBack }: Props) {
+export function LiftSession({ name, week, day, oneRepMax, existing, lastNote, onSave, onBack }: Props) {
   const sets = setsFor(week);
   const plus = sets.find((s) => s.amrap);
   const fixedCount = sets.filter((s) => !s.amrap).length;
@@ -38,6 +41,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
     existing?.set_results ? existing.set_results.slice(0, fixedCount) : Array(fixedCount).fill(null),
   );
   const [repsDone, setRepsDone] = useState(() => (existing?.amrap_reps != null ? String(existing.amrap_reps) : ""));
+  const [notes, setNotes] = useState(() => existing?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
   const last = sets[sets.length - 1];
@@ -71,6 +75,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
       program_day: day,
       set_results: plus ? [...results.map(Boolean), reps >= plus.reps] : results.map(Boolean),
       amrap_reps: plus ? reps : null,
+      notes: cleanNotes(notes),
     });
     setSaving(false);
     if (ok) onBack();
@@ -95,6 +100,7 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
           Training max {fmt(trainingMax(oneRepMax))} kg{week === DELOAD ? " · deload: half the sets and reps" : ""}
         </p>
       </div>
+      {lastNote && <PreviousNote entry={lastNote} />}
 
       <ol className="sets">
         {sets.map((set, i) => {
@@ -167,6 +173,8 @@ export function LiftSession({ name, week, day, oneRepMax, existing, onSave, onBa
           );
         })}
       </ol>
+
+      <NotesField id="lift-notes" value={notes} onChange={setNotes} />
 
       <button className="primary" type="button" disabled={!complete || saving} onClick={save}>
         {buttonLabel}

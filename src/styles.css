@@ -205,6 +205,21 @@ input, select {
   min-width: 0;
   font-variant-numeric: tabular-nums;
 }
+textarea {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  line-height: 1.4;
+}
+textarea:focus-visible,
 input:focus-visible, select:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -945,3 +960,25 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   text-transform: uppercase;
 }
 .deload-note p { margin: 0; color: var(--muted); }
+
+/* Notes */
+.notes-field { display: flex; flex-direction: column; gap: 10px; }
+.prev-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  font-size: 14px;
+}
+.prev-note-when { font-size: 12px; font-weight: 600; color: var(--muted); }
+.prev-note p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry-note {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

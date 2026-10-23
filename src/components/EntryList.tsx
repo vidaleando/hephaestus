@@ -55,6 +55,7 @@ function EntryRow({ entry, unit, isPR, onRemove }: { entry: Entry; unit: Unit; i
             </>
           )}
         </div>
+        {entry.notes && <p className="entry-note">{entry.notes}</p>}
       </div>
       <button
         type="button"

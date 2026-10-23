@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fmt, niceDate } from "../lib/lifting";
+import { fmt, niceDate, previousNote, todayISO } from "../lib/lifting";
 import {
   currentPrescription,
   DAYS,
@@ -150,6 +150,10 @@ export function ProgrammeView({
   if (screen.name === "item") {
     const item = items[screen.index];
     const existing = logged(item);
+    const lastNote = previousNote(entries, item.name, {
+      excludeId: existing?.id,
+      onOrBefore: existing?.performed_on ?? todayISO(),
+    });
     if (item.kind === "531" && maxes[item.lift] != null) {
       return (
         <LiftSession
@@ -160,6 +164,7 @@ export function ProgrammeView({
           day={day}
           oneRepMax={maxes[item.lift]!}
           existing={existing}
+          lastNote={lastNote}
           onSave={saveFor(existing)}
           onBack={back}
         />
@@ -179,6 +184,7 @@ export function ProgrammeView({
           week={week}
           day={day}
           existing={existing}
+          lastNote={lastNote}
           onSave={saveFor(existing)}
           onBack={back}
         />

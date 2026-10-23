@@ -1,8 +1,20 @@
 import { useMemo, useState, type FocusEvent, type FormEvent } from "react";
-import { convert, exerciseNames, fmt, niceDate, round1, sameExercise, sortEntries, todayISO } from "../lib/lifting";
+import {
+  cleanNotes,
+  convert,
+  exerciseNames,
+  fmt,
+  niceDate,
+  previousNote,
+  round1,
+  sameExercise,
+  sortEntries,
+  todayISO,
+} from "../lib/lifting";
 import type { Entry, NewEntry, Unit } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 import { EntryList } from "./EntryList";
+import { NotesField } from "./NotesField";
 
 interface Props {
   entries: Entry[];
@@ -22,6 +34,7 @@ export function LogView({ entries, unit, prs, onToggleUnit, onAdd, onRemove, toa
   const [reps, setReps] = useState("");
   const [sets, setSets] = useState("3");
   const [date, setDate] = useState(todayISO);
+  const [notes, setNotes] = useState("");
 
   const sorted = useMemo(() => sortEntries(entries), [entries]);
   const names = useMemo(() => exerciseNames(entries), [entries]);
@@ -56,6 +69,7 @@ export function LogView({ entries, unit, prs, onToggleUnit, onAdd, onRemove, toa
     setWeight("");
     setReps("");
     setSets("3");
+    setNotes("");
     const ok = await onAdd({
       exercise: canonical,
       weight: parseFloat(weight) || 0,
@@ -63,6 +77,7 @@ export function LogView({ entries, unit, prs, onToggleUnit, onAdd, onRemove, toa
       reps: r,
       sets: s,
       performed_on: date || todayISO(),
+      notes: cleanNotes(notes),
     });
     if (ok) toast(`Logged ${canonical}`);
   }
@@ -181,6 +196,13 @@ export function LogView({ entries, unit, prs, onToggleUnit, onAdd, onRemove, toa
           Date
           <input id="date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
+
+        <NotesField
+          id="log-notes"
+          value={notes}
+          onChange={setNotes}
+          previous={exercise.trim() ? previousNote(entries, exercise, { onOrBefore: date || todayISO() }) : undefined}
+        />
 
         <button className="primary" type="submit">
           Add to log

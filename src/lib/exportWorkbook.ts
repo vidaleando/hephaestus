@@ -283,14 +283,14 @@ function buildArchiveSheet(ws: Worksheet, entries: Entry[]) {
       );
       ws.getCell(row, c + 2).numFmt = "0.0";
       const c2 = entryCycle(e);
-      ws.getCell(row, c).note = `${e.performed_on}${c2 ? ` · Cycle ${c2}` : ""}${e.program_week ? ` · Week ${e.program_week}` : ""}`;
+      ws.getCell(row, c).note = `${e.performed_on}${c2 ? ` · Cycle ${c2}` : ""}${e.program_week ? ` · Week ${e.program_week}` : ""}${e.notes ? `\n${e.notes}` : ""}`;
     });
   });
 }
 
 /** Everything logged that isn't a 5/3/1 main-lift session with a + set. */
 function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
-  const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Sets", "Cycle", "Week", "Day"];
+  const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Sets", "Cycle", "Week", "Day", "Notes"];
   ws.addRow(headers).font = { bold: true };
   // Everything except 5/3/1 sessions with a + set (those are in the 531 sheets); deload
   // main-lift sessions have no + set, so they're listed here too
@@ -305,11 +305,13 @@ function buildAssistanceSheet(ws: Worksheet, entries: Entry[]) {
       entryCycle(e) ?? "",
       e.program_week === DELOAD ? "Deload" : (e.program_week ?? ""),
       e.program_day ?? "",
+      e.notes ?? "",
     ]);
   }
   ws.getColumn(1).numFmt = "yyyy-mm-dd";
   ws.getColumn(1).width = 12;
   ws.getColumn(2).width = 20;
+  ws.getColumn(10).width = 50;
 }
 
 /** Weigh-ins with the % change from the one before (the original's "Bp" column). */

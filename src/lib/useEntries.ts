@@ -5,7 +5,7 @@ import { supabase } from "./supabase";
 import type { Entry, NewEntry } from "./types";
 
 const COLUMNS =
-  "id, exercise, weight, unit, reps, sets, performed_on, created_at, program_week, program_day, set_results, amrap_reps, cycle";
+  "id, exercise, weight, unit, reps, sets, performed_on, created_at, program_week, program_day, set_results, amrap_reps, cycle, notes";
 
 function fromRow(row: Record<string, unknown>): Entry {
   return {
@@ -22,6 +22,7 @@ function fromRow(row: Record<string, unknown>): Entry {
     set_results: Array.isArray(row.set_results) ? row.set_results.map(Boolean) : null,
     amrap_reps: row.amrap_reps == null ? null : Number(row.amrap_reps),
     cycle: row.cycle == null ? null : Number(row.cycle),
+    notes: typeof row.notes === "string" && row.notes ? row.notes : null,
   };
 }
 

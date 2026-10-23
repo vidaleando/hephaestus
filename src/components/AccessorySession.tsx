@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { fmt, todayISO } from "../lib/lifting";
+import { cleanNotes, fmt, todayISO } from "../lib/lifting";
 import { DELOAD, weekLabel, type Day, type ProgrammeWeek } from "../lib/programme";
 import type { Entry, NewEntry } from "../lib/types";
 import { BackBar } from "./BackBar";
+import { NotesField, PreviousNote } from "./NotesField";
 
 interface Props {
   name: string;
@@ -15,15 +16,30 @@ interface Props {
   week: ProgrammeWeek;
   day: Day;
   existing?: Entry;
+  /** The last note on this exercise, shown above the notes box. */
+  lastNote?: Entry;
   onSave: (entry: NewEntry) => Promise<boolean>;
   onBack: () => void;
 }
 
 /** Log a fixed-prescription exercise, pre-filled from the programme. */
-export function AccessorySession({ name, reps, sets, weight, fromLog, week, day, existing, onSave, onBack }: Props) {
+export function AccessorySession({
+  name,
+  reps,
+  sets,
+  weight,
+  fromLog,
+  week,
+  day,
+  existing,
+  lastNote,
+  onSave,
+  onBack,
+}: Props) {
   const [w, setW] = useState(() => String(existing?.weight ?? weight));
   const [r, setR] = useState(() => String(existing?.reps ?? reps));
   const [s, setS] = useState(() => String(existing?.sets ?? sets));
+  const [notes, setNotes] = useState(() => existing?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
   async function submit(ev: FormEvent) {
@@ -43,6 +59,7 @@ export function AccessorySession({ name, reps, sets, weight, fromLog, week, day,
       program_day: day,
       set_results: null,
       amrap_reps: null,
+      notes: cleanNotes(notes),
     });
     setSaving(false);
     if (ok) onBack();
@@ -60,6 +77,7 @@ export function AccessorySession({ name, reps, sets, weight, fromLog, week, day,
           {weight ? `@ ${fmt(weight)} kg` : "· bodyweight"}
         </p>
       </div>
+      {lastNote && <PreviousNote entry={lastNote} />}
       <form className="panel" onSubmit={submit} autoComplete="off">
         <div className="grid3">
           <label htmlFor="acc-w">
@@ -103,6 +121,7 @@ export function AccessorySession({ name, reps, sets, weight, fromLog, week, day,
             />
           </label>
         </div>
+        <NotesField id="acc-notes" value={notes} onChange={setNotes} />
         <button className="primary" type="submit" disabled={saving}>
           {existing ? `Update ${name}` : `Save ${name}`}
         </button>

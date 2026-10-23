@@ -20,6 +20,8 @@ export interface Entry {
   amrap_reps?: number | null;
   /** The programme cycle this entry belongs to (programme entries only). */
   cycle?: number | null;
+  /** The user's own notes on this exercise, e.g. how it felt or what to change next time. */
+  notes?: string | null;
 }
 
 export type NewEntry = Omit<Entry, "id" | "created_at">;

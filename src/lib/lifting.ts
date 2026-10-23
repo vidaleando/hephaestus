@@ -85,3 +85,29 @@ export function personalRecords(entries: Entry[]): Set<string> {
   }
   return ids;
 }
+
+export const NOTES_MAX = 1000;
+
+/** Trimmed notes, or null when there's nothing worth saving. */
+export function cleanNotes(text: string): string | null {
+  const t = text.trim().slice(0, NOTES_MAX);
+  return t ? t : null;
+}
+
+/**
+ * The most recent earlier note on an exercise, to show while logging it again. Skips the
+ * entry being edited, and anything logged after the date being logged.
+ */
+export function previousNote(
+  entries: Entry[],
+  exercise: string,
+  opts: { excludeId?: string; onOrBefore?: string } = {},
+): Entry | undefined {
+  return sortEntries(entries).find(
+    (e) =>
+      e.notes &&
+      e.id !== opts.excludeId &&
+      (!opts.onOrBefore || e.performed_on <= opts.onOrBefore) &&
+      sameExercise(e.exercise, exercise),
+  );
+}
